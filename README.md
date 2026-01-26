@@ -1,67 +1,139 @@
-# PRD Framework Skills
+# Claude Code Skills Collection
 
-Claude Code skills for product planning. Transform vision documents into traceable, testable specifications.
+A growing collection of AI agent skills for software development workflows. Built for technical leads, TPMs, and developers who want Claude Code to help with planning, specification, and engineering tasks.
 
-## Planning Pipeline
+**Contributions welcome!** Found a way to improve a skill or have a new one to add? [Open a PR](#contributing).
 
-These three skills form a sequential workflow for quarterly planning:
+## Available Skills
+
+### TPM & Planning
+
+Transform vision documents into traceable, testable specifications. See the [TPM Planning Guide](docs/tpm-planning/README.md) for the full methodology.
+
+| Skill | Description | Triggers |
+|-------|-------------|----------|
+| [tpm-spec-trace-ids](skills/tpm-spec-trace-ids/) | Annotate vision docs with Feature IDs (F-nnn) | "annotate my vision doc," "add feature IDs," "create coverage index" |
+| [tpm-roadmap-slice](skills/tpm-roadmap-slice/) | Extract features into Phase PRDs with requirements | "create phase PRD," "plan next quarter," "extract phase from vision" |
+| [tpm-spec-verify](skills/tpm-spec-verify/) | Add QA requirements and acceptance criteria | "add QA plan," "add acceptance criteria," "enrich with test criteria" |
+
+#### Documentation
+
+- [TPM Planning Guide](docs/tpm-planning/README.md) — Full methodology for the planning pipeline
+
+**Planning Pipeline:**
 ```
-Vision PRD → [annotator] → Annotated PRD + Coverage Index
-                                    ↓
-                          [phase-generator] → Phase PRD (R-nnnn)
-                                    ↓
-                            [qa-enricher] → Phase PRD + Q-nnn + AC-nnnn
+Vision PRD → [tpm-spec-trace-ids] → Annotated PRD + Coverage Index
+                                            ↓
+                                  [tpm-roadmap-slice] → Phase PRD (R-nnnn)
+                                            ↓
+                                    [tpm-spec-verify] → Phase PRD + Q-nnn + AC-nnnn
 ```
 
-**Example files**
+<!--
+### DevOps & Infrastructure
+Coming soon.
 
-- vision.md - You starting point, can be a massive spec/prd
-- vision.md and coverage_index.txt - Your edited vision.md with tracking IDs
-- phase_1.md - Your first sprint. Includes requirements and verification steps
-- phase_<N>.md - Future sprints as you chew through your vision.md document
-
-### prd-vision-annotator
-
-Annotate a narrative vision document with Feature IDs (`F-nnn`) and generate a Coverage Index.
-
-**Triggers:** "annotate my vision doc", "add feature IDs", "create coverage index"
-
-**Outputs:**
-- Vision PRD with `[F-nnn]` tags on section headers
-- Coverage Index tracking feature status across phases
-
-### prd-phase-generator
-
-Extract features from an annotated Vision PRD into a detailed Phase PRD with requirements and priorities.
-
-**Triggers:** "create phase PRD", "plan next quarter", "extract phase from vision"
-
-**Outputs:**
-- Phase PRD with functional requirements (`R-nnnn`)
-- Updated Coverage Index (selected features → `In Progress`)
-
-**Capacity defaults:** ~10 features, ~50 requirements, ~100 acceptance criteria per phase.
-
-### prd-qa-enricher
-
-Enrich a Phase PRD with quality requirements and acceptance criteria for test planning.
-
-**Triggers:** "add QA plan", "add acceptance criteria", "enrich with test criteria"
-
-**Adds:**
-- Quality Requirements (`Q-nnn`) — performance, security, accessibility, compatibility
-- Acceptance Criteria (`AC-nnnn`) — happy path, edge cases, error handling
-
-## ID Reference
-
-| Prefix | Entity | Example | Location |
-|--------|--------|---------|----------|
-| `G-nn` | Goal | G-01 | Vision PRD |
-| `F-nnn` | Feature | F-014 | Vision PRD |
-| `R-nnnn` | Requirement | R-0142 | Phase PRD |
-| `Q-nnn` | Quality Requirement | Q-007 | Phase PRD |
-| `AC-*` | Acceptance Criteria | AC-R0142-01 | Phase PRD |
+### Other Categories
+Add new categories here as the collection grows.
+-->
 
 ## Installation
 
-Copy `.skill` files to your Claude Code skills directory, or extract the folders to `~/.claude/skills/`.
+### Option 1: CLI Install (Recommended)
+
+Use [add-skill](https://github.com/vercel-labs/add-skill) to install skills directly:
+
+```bash
+# Install all skills
+npx skills add https://github.com/ozten/skills
+
+# Install specific skills
+npx skills add https://github.com/ozten/skills --skill tpm-spec-trace-ids
+
+# List available skills
+npx skills add https://github.com/ozten/skills --list
+```
+
+### Option 2: Clone and Copy
+
+Clone the repo and copy the skills you need:
+
+```bash
+git clone https://github.com/ozten/skills
+cp -r skills/* ~/.claude/skills/
+```
+
+### Option 3: Direct Download
+
+Download individual `SKILL.md` files and place them in `~/.claude/skills/skill-name/`.
+
+### Option 4: Fork and Customize
+
+1. Fork this repository
+2. Customize skills for your team's workflows
+3. Clone your fork into your projects
+
+## Usage
+
+Once installed, just ask Claude Code to help with planning tasks:
+
+```
+"Annotate this vision doc with feature IDs"
+→ Uses tpm-spec-trace-ids skill
+
+"Create a phase PRD for Q2"
+→ Uses tpm-roadmap-slice skill
+
+"Add acceptance criteria to this spec"
+→ Uses tpm-spec-verify skill
+```
+
+Or reference skills directly when starting a task:
+
+```
+"Using tpm-roadmap-slice, extract features F-012 through F-018 into a phase PRD"
+```
+
+## Contributing
+
+Found a way to improve a skill? Have a new skill to suggest? PRs and issues welcome!
+
+**Ideas for contributions:**
+- Improve existing skill instructions or workflows
+- Add new skills for other domains (DevOps, security, testing)
+- Fix typos or clarify confusing sections
+- Add examples or templates
+
+**How to contribute:**
+1. Fork the repo
+2. Create or edit skill files
+3. Submit a PR with a clear description
+
+### What are Skills?
+
+Skills are markdown files that give AI agents specialized knowledge and workflows for specific tasks. When you add these to your project, Claude Code can recognize what you're working on and apply the right frameworks and best practices.
+
+### Skill File Structure
+
+Each skill is a directory containing a `SKILL.md` file:
+
+```
+skills/
+  skill-name/
+    SKILL.md
+    assets/           # Optional templates
+    references/       # Optional detailed docs
+```
+
+See [Claude Skills](https://code.claude.com/docs/en/skills) for details.
+
+---
+
+# Skill Name
+
+[Full instructions for the AI agent]
+```
+
+## License
+
+MIT — Use these however you want.
