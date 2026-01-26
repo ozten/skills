@@ -1,6 +1,6 @@
 ---
-name: prd-qa-enricher
-description: Enrich a Phase PRD with Quality Requirements (Q-nnn) and Acceptance Criteria (AC-nnnn). Use when user wants to add QA perspective, define test criteria, identify non-functional requirements, add verification steps, or prepare a Phase PRD for test planning.
+name: tpm-spec-verify
+description: Enrich a Phase Sepc/PRD with Quality Requirements (Q-nnn) and Acceptance Criteria (AC-nnnn). Use when user wants to add QA perspective, define test criteria, identify non-functional requirements, add verification steps, or prepare a Phase PRD for test planning.
 ---
 
 # PRD QA Enricher

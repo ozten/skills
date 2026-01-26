@@ -1,6 +1,6 @@
 ---
-name: prd-phase-generator
-description: Generate a Phase PRD by extracting features from an annotated Vision PRD. Use when user wants to create quarterly phase documentation, extract requirements from vision, plan a development phase, or decompose features into R-nnnn requirements. Requires annotated Vision PRD with F-nnn tags and Coverage Index.
+name: tpm-roadmap-slice
+description: Generate a Phase Spec/PRD by extracting features from an annotated Vision PRD. Use when user wants to create quarterly phase documentation, extract requirements from vision, plan a development phase, or decompose features into R-nnnn requirements. Requires annotated Vision PRD with F-nnn tags and Coverage Index.
 ---
 
 # PRD Phase Generator

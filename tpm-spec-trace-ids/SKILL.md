@@ -1,6 +1,6 @@
 ---
-name: prd-vision-annotator
-description: Annotate a vision PRD with Feature IDs and generate a Coverage Index. Use when user wants to add spec tags to a vision document, create F-nnn identifiers, set up traceability, or initialize a PRD framework for phased development.
+name: tpm-spec-trace-ids
+description: Annotate a Spec/PRD with Feature IDs and generate a Coverage Index. Use when user wants to add spec tags to a vision document, create F-nnn identifiers, set up traceability, or initialize a PRD framework for phased development.
 ---
 
 # PRD Vision Annotator
