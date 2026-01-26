@@ -21,12 +21,20 @@ Transform vision documents into traceable, testable specifications. See the [TPM
 - [TPM Planning Guide](docs/tpm-planning/README.md) — Full methodology for the planning pipeline
 
 **Planning Pipeline:**
-```
-Vision PRD → [tpm-spec-trace-ids] → Annotated PRD + Coverage Index
-                                            ↓
-                                  [tpm-roadmap-slice] → Phase PRD (R-nnnn)
-                                            ↓
-                                    [tpm-spec-verify] → Phase PRD + Q-nnn + AC-nnnn
+
+```mermaid
+flowchart TD
+    A[Vision PRD] --> B[tpm-spec-trace-ids]
+    B --> C[Annotated PRD + Coverage Index]
+    C --> D[tpm-roadmap-slice]
+    D --> E[Phase I PRD with Requirements]
+    E --> F[tpm-spec-verify]
+    F --> G[Phase I PRD with Acceptance criteria]
+    G -->|Iterate| D
+
+    style B fill:#4a9eff,color:#fff
+    style D fill:#4a9eff,color:#fff
+    style F fill:#4a9eff,color:#fff
 ```
 
 <!--
