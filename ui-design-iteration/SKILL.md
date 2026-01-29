@@ -1,5 +1,5 @@
 ---
-name: iterating-ui-designs
+name: ui-design-iteration
 description: Iterates on data-intensive UI designs to improve scannability, hierarchy, accessibility, and systematization. Use when improving an existing UI, reviewing a design for UX issues, or transforming a functional-but-flat interface into a polished product.
 ---
 
