@@ -45,7 +45,26 @@ Coming soon.
 Add new categories here as the collection grows.
 -->
 
-## Installation
+## Webcomic - comic-strip-pipeline
+
+Go from a script or story to a prepared script ready for nano-banana or another image generator.
+
+```bash
+/plugin marketplace add https://github.com/ozten/skills
+/plugin install comic-strip-pipeline@skills
+```
+
+### Example usage:
+
+During a claude code session:
+
+```bash
+/comic-strip-pipeline:create-comic Please take `outputs/2026-01-29_07-05-38_building-in-public-is.script.md` and identify the best comic strip lurking in their. Characters
+  to choose from are `character_sheets/character_sheets.md` and ideally the setting is `character_sheets/setting.md`, but choose another setting if needed.
+```
+
+
+## Skill Installation
 
 ### Option 1: CLI Install (Recommended)
 

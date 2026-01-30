@@ -26,8 +26,8 @@ cat > ~/test-marketplace/.claude-plugin/marketplace.json << 'EOF'
 EOF
 
 # In Claude Code:
-/plugin marketplace add ~/test-marketplace
-/plugin install comic-strip-pipeline@test-marketplace
+/plugin marketplace add https://github.com/ozten/skills
+/plugin install comic-strip-pipeline@skills
 ```
 
 ### Option 2: Add to Existing Marketplace
