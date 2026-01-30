@@ -1,0 +1,24 @@
+{
+  "name": "skills",
+  "owner": { "name": "Austin King", "url": "https://x.com/MadeWithOzten" },
+  "metadata": {
+    "description": "Product creation skills for Claude Code — Engineering, Marketing, Sales all the Indie Hacking practices of ozten",
+    "version": "1.0.0",
+    "repository": "https://github.com/ozten/skills"
+  },
+  "plugins": [{
+    "name": "comic-strip-pipeline",
+    "source": "./comic-strip-pipeline",
+    "description": "Transform narratives into comic strips"
+  }, {
+    "name": "tmp-spec-skills",
+    "source": "./",
+    "description": "TPM planning skills for autonomous agentic coding",
+    "strict": false,
+      "skills": [
+        "./tpm-spec-trace-ids",
+        "./tpm-spec-verify",
+        "./tpm-roadmap-slice"
+      ]  
+  }]
+}
