@@ -49,6 +49,19 @@ Comic strips operate on **compression and economy**. Each panel is one frozen mo
 
 Best punchlines feel **surprising AND inevitable**.
 
+## Alternative: Kishotenketsu Structure
+
+The Japanese four-part structure offers an alternative to Western conflict-driven narrative:
+
+| Part | Function | Example |
+|------|----------|---------|
+| **Ki** (Introduction) | Establish the scene | A cat sleeps on a warm laptop |
+| **Shō** (Development) | Continue or elaborate | Person needs to use the laptop |
+| **Ten** (Twist) | Introduce something unexpected | Person gets a second laptop and works around the cat |
+| **Ketsu** (Conclusion) | Resolve with new perspective | Cat immediately moves to the new warm laptop |
+
+This allows stories **without conflict** by substituting *surprise* for antagonism.
+
 ## Advanced Structures
 
 **Anti-Joke:** Weak punchline in panel 2, then disappointed reactions in panels 3-4.
@@ -63,6 +76,16 @@ Best punchlines feel **surprising AND inevitable**.
 - Fewer panels = punchier delivery
 - Silent panels create beats/pauses
 - Consider silent panel 3 as beat before panel 4 payoff
+
+## Common Structural Pitfalls
+
+| Pitfall | What Goes Wrong | The Fix |
+|---------|-----------------|---------|
+| **Repetitive structure** | Every strip uses identical panel rhythm | Rotate between 2-panel zingers, 4-panel builds, and sight gags |
+| **Burying the lead** | Setup takes too long; punchline arrives late | Hook readers in panel 1; get to conflict fast |
+| **Weak premise** | Joke requires too much context | Simplify setup; apply first-reader test |
+| **No escalation** | Panels 2-3 feel flat, no tension building | Add stakes, obstacle, or misdirection |
+| **Explaining the joke** | Adding dialogue after the punchline lands | End on the laugh; silence is powerful |
 
 ## Checklist
 

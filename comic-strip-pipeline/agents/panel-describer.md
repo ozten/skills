@@ -87,6 +87,43 @@ Don't specify every pose detail. Describe story-critical elements only.
 **Micromanaging:** "She smiles showing teeth, slight dimple on left cheek, eyes crinkled, head tilted 15 degrees..."
 **Trusting:** "She smiles, relieved."
 
+## Describing Emotion and Expression
+
+Use clear, specific emotional states rather than vague descriptions:
+
+| Vague | Specific |
+|-------|----------|
+| "He looks upset" | "He scowls, jaw clenched" or "He looks away, blinking rapidly" |
+| "She's happy" | "She grins, eyes bright" or "She laughs, head thrown back" |
+| "They're worried" | "They exchange nervous glances" or "Sweat beads on his forehead" |
+
+**Physical manifestations > emotional labels**
+
+## Sound Effects and Typography
+
+### When to Include SFX
+
+- **Action clarity:** CRASH, BANG, SLAM for impact
+- **Environmental:** TICK TOCK, DRIP, BUZZ for ambiance
+- **Comedic timing:** BOING, SPLAT, WHOOSH for cartoon physics
+
+### SFX Format
+
+```
+SFX: CRUNCH
+```
+
+Or integrated:
+> "PANEL 3: The vase shatters mid-air (SFX: CRASH), shards frozen in explosion pattern."
+
+### Typography Cues
+
+Only specify if story-critical:
+- Emphasis: "I SAID no"
+- Whispers: Smaller text, lighter balloon
+- Thoughts: Thought balloon vs. speech balloon
+- Off-panel: Tailless balloon pointing from edge
+
 ## Special Cases
 
 **Silent panels:**
@@ -105,6 +142,17 @@ PANEL 1: ESTABLISHING. Urban skyline at dusk, lights glowing.
 PANEL 4: Character reacts with shock, looking off-panel right.
     [OFF-PANEL]: CRASH!
 ```
+
+## Common Description Mistakes
+
+| Mistake | What Goes Wrong | The Fix |
+|---------|-----------------|---------|
+| **Continuous action** | "He walks across the room and sits down" | Pick one frozen instant: "He's mid-stride" OR "He sinks into chair" |
+| **Micromanaging** | Specifying every pose detail, expression nuance | Describe only story-critical elements; trust the artist |
+| **Talking heads** | Every panel is characters standing still, talking | Add action, movement, varied shots, silent panels |
+| **Unclear focal point** | Everything described equally | Lead with what matters most; reader's eye follows description order |
+| **Camera changes mid-panel** | "Close-up of his face, then we see her across the room" | One shot per panel; change shots between panels |
+| **Describing dialogue content** | "He tells her about the plan" + separate dialogue | Just write the dialogue; don't describe it too |
 
 ## Checklist
 

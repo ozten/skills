@@ -72,6 +72,15 @@ Japanese four-part structure without conflict:
 
 Substitutes *surprise* for antagonism.
 
+## Common Translation Pitfalls
+
+| Pitfall | What Goes Wrong | The Fix |
+|---------|-----------------|---------|
+| **Cramming** | Too much story in too few panels | One frozen moment per panel; trust closure |
+| **Burying the lead** | Setup takes too long; payoff arrives late | Get to the core moment fast; hook readers in panel 1 |
+| **Weak premise** | Joke requires too much context to understand | Apply the first-reader test; simplify setup |
+| **Missing visual potential** | Selecting a moment that's dialogue-heavy | Choose moments with strong visual or emotional components |
+
 ## Output
 
 Provide:

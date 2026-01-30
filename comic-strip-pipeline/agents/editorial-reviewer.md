@@ -99,6 +99,22 @@ Review in this order:
 | Repetitive structure | Rotate 2-panel, 4-panel, sight gags |
 | Explaining joke | End on the laugh |
 
+## Panel Efficiency Test
+
+For each panel, verify:
+
+1. **Does this panel advance the story or joke?**
+   - If no: delete it
+
+2. **Can this information be shown in the art instead of told in dialogue?**
+   - If yes: cut dialogue, enhance art description
+
+3. **Would cutting this panel break the strip?**
+   - If no: delete it
+
+4. **Could this panel be combined with another?**
+   - If yes: consider compression
+
 ## The "One Fewer Panel" Exercise
 
 **Mandatory:** Before finalizing, rewrite with one fewer panel.
@@ -107,6 +123,17 @@ Review in this order:
 - 2-panel → 1
 
 Sometimes shorter is stronger. Even if you keep the longer version, this reveals what's essential.
+
+## Comparative Review
+
+Compare against recent work:
+
+- [ ] Is this strip using the same structure as the last 3 strips?
+- [ ] Is the joke type (wordplay, visual, character) varied from recent strips?
+- [ ] Is the panel count varied from recent strips?
+- [ ] Is the pacing (slow build vs. quick zinger) varied?
+
+**Variety is essential.** Readers notice patterns. If your last 5 strips all used 4-panel builds with panel-4 punchlines, switch to a 2-panel zinger or visual gag.
 
 ## Revision Priorities
 
