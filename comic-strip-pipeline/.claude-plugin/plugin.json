@@ -1,0 +1,8 @@
+{
+  "name": "comic-strip-pipeline",
+  "description": "Transform narratives into professional comic strips through a multi-agent pipeline: story translation, dialogue writing, panel structuring, visual descriptions, and editorial review.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Austin"
+  }
+}
