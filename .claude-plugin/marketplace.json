@@ -20,5 +20,10 @@
         "./tpm-spec-verify",
         "./tpm-roadmap-slice"
       ]  
-  }]
+  },
+  {
+  "name": "nano-banana-image-gen",
+  "source": "./nano-banana-image-gen",
+  "description": "Generate images using Google Gemini API"
+}]
 }

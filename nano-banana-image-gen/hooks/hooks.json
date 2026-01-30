@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "sh ${CLAUDE_PLUGIN_ROOT}/scripts/check_deps.sh 2>/dev/null || true"
+      }]
+    }]
+  }
+}
