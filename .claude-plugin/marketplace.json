@@ -24,5 +24,15 @@
     "name": "nano-banana-image-gen",
     "source": "./nano-banana-image-gen",
     "description": "Generate images using Google Gemini API"
+  }, {
+    "name": "webdev-ui-components",
+    "source": "./",
+    "description": "Web development skills for building accessible autocomplete, token inputs, and filter query builders",
+    "strict": false,
+    "skills": [
+      "./webdev-combobox-autocomplete",
+      "./webdev-token-input",
+      "./webdev-filter-query-builder"
+    ]
   }]
 }
