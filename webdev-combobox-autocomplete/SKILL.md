@@ -7,30 +7,49 @@ description: Foundational patterns for building accessible autocomplete/combobox
 
 Build accessible autocomplete/combobox components using proven patterns from production implementations.
 
-## State Model
+## Universal State Model
 
-Every library (Downshift, Headless UI, Ariakit, Algolia) converges on the same core state shape:
+Every library (Downshift, Headless UI, Ariakit, Algolia) converges on remarkably similar state shapes. Understanding this canonical model lets you implement in any framework:
 
 ```typescript
-interface ComboboxState {
-  // Interaction state machine
+interface FilterInputState {
+  // Interaction state (the state machine)
   status: 'idle' | 'focused' | 'suggesting' | 'loading';
 
   // Input state
   inputValue: string;
   cursorPosition: number;
 
+  // Token state (for multi-select, see webdev-token-input)
+  tokens: FilterToken[];
+  activeTokenIndex: number | null;
+
   // Suggestion state
   suggestions: Suggestion[];
-  highlightedIndex: number;  // -1 = no highlight (virtual focus)
+  highlightedIndex: number;         // -1 means no highlight
 
   // Async coordination
-  lastFetchedQuery: string;
-  pendingRequestId: number;
+  lastFetchedQuery: string;         // Prevents redundant fetches
+  pendingRequestId: number;         // Race condition prevention
 }
 ```
 
-**highlightedIndex** is "virtual focus"—the visually highlighted option while DOM focus stays on the input. This enables continued typing while navigating suggestions.
+**The highlightedIndex deserves special attention.** This is "virtual focus"—the visually highlighted suggestion—while DOM focus stays on the input. The W3C APG mandates this pattern: you communicate the focused option to screen readers via `aria-activedescendant` rather than actually moving focus. This lets users continue typing while navigating suggestions.
+
+## State Reducer Pattern
+
+**Downshift's key innovation** was the state reducer pattern, which lets you intercept and modify any state transition. When you need the menu to stay open after selection (common for multi-select), you override just that transition rather than forking the library:
+
+```typescript
+stateReducer: (state, { type, changes }) => {
+  if (type === 'ItemClick' || type === 'InputKeyDownEnter') {
+    return { ...changes, isOpen: true, inputValue: '' };
+  }
+  return changes;
+}
+```
+
+This pattern allows customization without fighting the library's internal logic.
 
 ## ARIA Combobox Pattern
 
@@ -50,7 +69,7 @@ Required structure with `aria-activedescendant` for virtual focus:
 </ul>
 ```
 
-**Critical:** Browsers don't auto-scroll when `aria-activedescendant` changes. Manually call `element.scrollIntoView({ block: 'nearest' })` when highlighting changes.
+**Critical:** Browsers don't auto-scroll when `aria-activedescendant` changes. Manually call `element.scrollIntoView({ block: 'nearest' })` when highlighting changes. This is the most common accessibility bug in custom implementations.
 
 ## Keyboard Navigation
 
@@ -70,7 +89,7 @@ Required structure with `aria-activedescendant` for virtual focus:
 
 ## Prop-Getter Pattern
 
-Framework-agnostic implementation via functions returning event handlers and ARIA attributes:
+**The most reusable pattern across React, Svelte, Solid, and vanilla JS is prop-getters**: functions that return objects containing event handlers and ARIA attributes to spread onto your elements. Downshift popularized this; Headless UI, Ariakit, and Kobalte all use variants.
 
 ```typescript
 function getInputProps(userProps = {}) {
@@ -100,13 +119,11 @@ function composeEventHandlers(...handlers) {
 }
 ```
 
-Benefits: Users can add their own handlers, your handlers can preventDefault to stop propagation, ARIA attributes correct by default.
+**This pattern solves multiple problems**: users can add their own handlers that run before yours, your handlers can call `preventDefault()` to stop user handlers, and all the ARIA attributes are correct by default. The same `getInputProps`/`getMenuProps`/`getItemProps` shape works in any framework—you're returning plain objects, not JSX.
 
-## Async Suggestions
+## Async Suggestions Without Race Conditions
 
-### Race Condition Prevention
-
-Three patterns to prevent stale results:
+**Race conditions are the #1 bug source in custom autocomplete implementations.** User types "java", request fires, user types "script", first request returns and overwrites the correct "javascript" results. Three patterns prevent this:
 
 ```typescript
 // Pattern 1: Request ID tracking (simplest)
@@ -127,12 +144,12 @@ useEffect(() => {
 }, [query]);
 
 // Pattern 3: XState (most robust)
-// Transitioning out of "fetching" automatically cancels invoked services
+// Transitioning out of "fetching" state automatically cancels invoked services
 ```
 
 ### Debouncing Strategy
 
-Algolia's research shows hybrid approach works best:
+Algolia's research shows a hybrid approach works better—throttle for the first few characters (eager feedback), debounce after (patient waiting):
 
 ```typescript
 function handleInput(query) {
@@ -141,18 +158,17 @@ function handleInput(query) {
 }
 ```
 
-- Desktop: 200ms debounce
-- Mobile: 300ms debounce
+Tuning: 200ms for desktop, 300ms for mobile.
 
-### Caching
+### Caching by Context
 
-Store `lastFetchedQuery` to prevent redundant fetches:
+Prevent redundant fetches by storing `lastFetchedQuery` in state:
 
 ```typescript
 if (query === state.lastFetchedQuery) return;
 ```
 
-For context-dependent suggestions, maintain separate caches keyed by field name.
+For context-dependent suggestions (different values for `status:` vs `assignee:`), maintain separate caches keyed by field name.
 
 ## Focus Management Pitfalls
 
@@ -164,7 +180,7 @@ For context-dependent suggestions, maintain separate caches keyed by field name.
 ### Cursor Jumping
 **Problem**: Framework re-renders reset cursor to end of input.
 
-**Solution**: Store selectionStart before update, restore in microtask:
+**Solution**: Store `selectionStart` before update, restore in microtask:
 
 ```typescript
 const cursorPos = inputRef.current.selectionStart;
@@ -175,9 +191,9 @@ requestAnimationFrame(() => {
 ```
 
 ### Stale Closures
-**Problem**: Debounced handlers capture old state.
+**Problem**: Debounced handlers capture old state. When the debounced function fires, it sees the state from when it was created, not current state.
 
-**Solution**: Use refs for values debounced functions need:
+**Solution**: Use refs for values that debounced functions need to read:
 
 ```typescript
 const queryRef = useRef();
@@ -189,6 +205,11 @@ const debouncedFetch = useMemo(
 );
 ```
 
+### Event Handler Conflicts
+**Problem**: Event handlers between input and container cause double-firing.
+
+**Solution**: The prop-getter pattern with `composeEventHandlers` solves this by checking `defaultPrevented` before calling each handler.
+
 ## Implementation Strategy
 
 1. **State model as reducer** with explicit action types for debuggability
@@ -198,29 +219,16 @@ const debouncedFetch = useMemo(
 5. **ARIA attributes** incrementally as you go
 6. **Test with screen reader** (VoiceOver/NVDA) before considering complete
 
+The fundamental insight: automated tools like axe-core catch only ~30% of real accessibility issues.
+
 ## Library Recommendations
 
-- **React**: Downshift (useCombobox), cmdk (command palettes), Headless UI Combobox
+- **React**: Downshift (`useCombobox`), cmdk (command palettes), Headless UI Combobox
 - **Svelte**: Melt UI
 - **Solid**: Kobalte
 - **Framework-agnostic**: Zag.js (state machine adapters), Algolia autocomplete.js
 - **Virtualization**: @tanstack/react-virtual for large lists
 
-## State Reducer Pattern
-
-Downshift's innovation for overriding state transitions:
-
-```typescript
-stateReducer: (state, { type, changes }) => {
-  if (type === 'ItemClick' || type === 'InputKeyDownEnter') {
-    return { ...changes, isOpen: true, inputValue: '' };
-  }
-  return changes;
-}
-```
-
-Use when menu should stay open after selection (multi-select) or other custom behaviors.
-
 ## Key Insight
 
-Combobox is a **composite widget**: one tab stop containing multiple interactive elements. Component owns a mini focus system (virtual focus via `aria-activedescendant` and arrow keys) while participating in page tab order as single unit.
+Combobox is a **composite widget**: one tab stop containing multiple interactive elements. The component owns a mini focus system (virtual focus via `aria-activedescendant` and arrow keys) while participating in the page's tab order as a single unit. Get this mental model right and the implementation details follow naturally.

@@ -33,23 +33,25 @@ interface FilterToken {
 
 ## Production Patterns Analysis
 
+Analyzing Datadog, Grafana, Honeycomb, Linear, and GitHub reveals two dominant paradigms:
+
 ### Text-Based (Datadog, Kibana, Sentry, GitHub)
 
-Colon as delimiter: typing `status:` triggers value suggestions, completing creates token.
+Colon as delimiter—typing `status:` triggers value suggestions, and completing the value creates a visual token.
 
-**Benefits**: Power users can edit inline, syntax highlighting, fast keyboard-only flow.
+**Benefits**: Power users can edit any part of a query inline, syntax highlighting, fast keyboard-only flow.
 
-**Example**: `service:payment AND status:error` — click anywhere to modify.
+**Example**: Datadog's "search pills" with syntax highlighting enable clicking anywhere in `service:payment AND status:error` to modify it.
 
 ### Visual Builders (Grafana, Honeycomb, Linear)
 
-Dropdowns for each component, tokens as discrete clickable pills.
+Dropdowns for each component, tokens displayed as discrete clickable pills.
 
 **Benefits**: Reduces errors, clear structure, good for non-technical users.
 
-**Example**: `[Assignee] [is] [John Doe]` — clicking operator toggles options.
+**Example**: Linear's approach treats each filter as a structured object where clicking the operator (`is`) toggles through options (`is not`, `is any of`).
 
-**Recommendation**: Start with text-based for observability/search; visual for task management.
+**The UX differences are significant.** For complex observability queries, the text-based approach wins; for task management, the visual builder reduces errors. Start with text-based for observability/search; visual for task management.
 
 ## Token Creation Triggers
 
@@ -90,7 +92,7 @@ function handleChange(value) {
 
 ## Backspace Behavior
 
-Two-step deletion for safety (Bootstrap Tokenfield pattern):
+**Backspace requires two-step deletion for safety**: first backspace selects/highlights the last token, second backspace deletes it. Bootstrap Tokenfield pioneered this pattern. Single-backspace deletion is faster but causes accidental deletions.
 
 ```typescript
 function handleKeyDown(e) {
@@ -107,11 +109,11 @@ function handleKeyDown(e) {
 }
 ```
 
-**Alternative**: Single-backspace deletion (faster but risky for accidental deletions).
+Implement the safer two-step pattern and make it configurable if needed.
 
 ## Arrow Navigation Between Tokens
 
-Only when input is empty:
+**Arrow navigation follows a clear hierarchy.** Up/Down move through suggestions using virtual focus. Left/Right navigate between tokens—but only when the input is empty. **This conditional is critical**: if there's text in the input, arrows control cursor position within that text. Downshift's `useMultipleSelection` implements this cleanly by checking `inputValue.length === 0` before enabling token navigation.
 
 ```typescript
 function handleKeyDown(e) {
@@ -130,12 +132,12 @@ function handleKeyDown(e) {
 }
 ```
 
-**Critical**: If input has text, Left/Right control cursor position within text.
-
 ## Token Editing Patterns
 
+**Token editing patterns fall into four categories:**
+
 ### Pattern 1: Delete-and-Retype (Simplest)
-Clicking token removes it, places text in input. Most forgiving of edge cases.
+Clicking a token removes it and places its text in the input. Most forgiving of edge cases.
 
 ```typescript
 function handleTokenClick(token) {
@@ -145,7 +147,7 @@ function handleTokenClick(token) {
 ```
 
 ### Pattern 2: Inline Text Editing (Datadog)
-Token expands into editable text inline.
+The token expands into editable text inline.
 
 ```typescript
 function handleTokenClick(token) {
@@ -155,7 +157,7 @@ function handleTokenClick(token) {
 ```
 
 ### Pattern 3: Popover Editing (Linear)
-Clicking opens structured editor for operator and value.
+Clicking opens a structured editor for operator and value.
 
 ```typescript
 function handleTokenClick(token) {
@@ -171,7 +173,7 @@ function handleTokenClick(token) {
 ### Pattern 4: No Editing (Most Common)
 Tokens can only be deleted and recreated. Safest for preventing invalid states.
 
-**Recommendation**: Start with delete-and-retype, most forgiving.
+**For your implementation, start with delete-and-retype**—it's the most forgiving of edge cases.
 
 ## Context-Dependent Suggestions
 
