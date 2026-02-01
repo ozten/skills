@@ -45,6 +45,26 @@ Coming soon.
 Add new categories here as the collection grows.
 -->
 
+## Web Development & UI Components
+
+Build accessible, production-ready autocomplete, token inputs, and filter query builders using proven patterns from Downshift, Headless UI, and tools like Datadog and Linear.
+
+| Skill | Description | Use When |
+|-------|-------------|----------|
+| [webdev-combobox-autocomplete](webdev-combobox-autocomplete/) | Foundational autocomplete/combobox patterns with ARIA, keyboard nav, async suggestions | Building autocomplete, command palettes, search inputs, select replacements |
+| [webdev-token-input](webdev-token-input/) | Multi-value token/chip inputs with key:value parsing | Building filter bars, tag inputs, email "To" fields, multi-select chips |
+| [webdev-filter-query-builder](webdev-filter-query-builder/) | Advanced filter query construction with AST, operators, serialization | Building observability tools, data analytics, search interfaces with boolean logic |
+
+**Key Features:**
+- State model patterns (highlightedIndex, virtual focus, token management)
+- ARIA combobox pattern with `aria-activedescendant`
+- Keyboard navigation (arrows, Enter, Escape, Tab, Backspace)
+- Prop-getter pattern for framework-agnostic implementation
+- Async suggestions with race condition prevention
+- Focus management solutions (blur vs click-outside, cursor jumping)
+- Context-dependent suggestions and caching
+- Filter AST representation and query serialization
+
 ## Webcomic - comic-strip-pipeline
 
 Go from a script or story to a prepared script ready for nano-banana or another image generator.
@@ -102,8 +122,9 @@ Download individual `SKILL.md` files and place them in `~/.claude/skills/skill-n
 
 ## Usage
 
-Once installed, just ask Claude Code to help with planning tasks:
+Once installed, just ask Claude Code to help with tasks:
 
+**Planning tasks:**
 ```
 "Annotate this vision doc with feature IDs"
 → Uses tpm-spec-trace-ids skill
@@ -115,10 +136,24 @@ Once installed, just ask Claude Code to help with planning tasks:
 → Uses tpm-spec-verify skill
 ```
 
+**Web development tasks:**
+```
+"Build an autocomplete search input with keyboard navigation"
+→ Uses webdev-combobox-autocomplete skill
+
+"Create a tag input with token chips like Linear's filters"
+→ Uses webdev-token-input skill
+
+"Build a filter query builder with operators and date ranges"
+→ Uses webdev-filter-query-builder skill
+```
+
 Or reference skills directly when starting a task:
 
 ```
 "Using tpm-roadmap-slice, extract features F-012 through F-018 into a phase PRD"
+
+"Using webdev-combobox-autocomplete, build a command palette with async suggestions"
 ```
 
 ## Contributing
