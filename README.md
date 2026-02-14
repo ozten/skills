@@ -45,6 +45,22 @@ Coming soon.
 Add new categories here as the collection grows.
 -->
 
+## Self-Improvement & Loop Analytics
+
+Track and optimize autonomous Claude Code session performance with metrics, trend analysis, and improvement tracking.
+
+| Skill | Description | Use When |
+|-------|-------------|----------|
+| [self-improvement](self-improvement/) | Analyze session efficiency, track improvements, view trends | "check loop metrics", "how are sessions doing", "analyze iterations", "loop performance", "session efficiency" |
+
+**Key Features:**
+- Dashboard with recent sessions, trends, and target comparison
+- Deep analysis with automatic trend comparison to previous runs
+- Improvement tracking (add, fix, search, list) with severity levels
+- JSONL session log parsing and bulk backfill
+- Efficiency targets: completion rate, narration-only turns, parallel tool calls, turns per session
+- SQLite-backed persistence with auto-created schema
+
 ## Web Development & UI Components
 
 Build accessible, production-ready autocomplete, token inputs, and filter query builders using proven patterns from Downshift, Headless UI, and tools like Datadog and Linear.
@@ -146,6 +162,18 @@ Once installed, just ask Claude Code to help with tasks:
 
 "Build a filter query builder with operators and date ranges"
 → Uses webdev-filter-query-builder skill
+```
+
+**Loop analytics tasks:**
+```
+"Check my loop metrics"
+→ Uses self-improvement skill
+
+"Analyze the last 20 iterations"
+→ Uses self-improvement skill
+
+"Add an improvement for high narration rate"
+→ Uses self-improvement skill
 ```
 
 Or reference skills directly when starting a task:

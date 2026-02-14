@@ -25,6 +25,10 @@
     "source": "./nano-banana-image-gen",
     "description": "Generate images using Google Gemini API"
   }, {
+    "name": "self-improvement",
+    "source": "./self-improvement",
+    "description": "Analyze autonomous loop session efficiency, track improvements, and view trends"
+  }, {
     "name": "webdev-ui-components",
     "source": "./",
     "description": "Web development skills for building accessible autocomplete, token inputs, and filter query builders",
