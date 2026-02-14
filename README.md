@@ -53,11 +53,17 @@ Track and optimize autonomous Claude Code session performance with metrics, tren
 |-------|-------------|----------|
 | [self-improvement](self-improvement/) | Analyze session efficiency, track improvements, view trends | "check loop metrics", "how are sessions doing", "analyze iterations", "loop performance", "session efficiency" |
 
+**Prerequisites:** This skill is built for projects using an autonomous loop setup:
+- **ralph-wiggum loop** — A bash script that runs Claude Code headlessly in batches, saving each session transcript as `claude-iteration-N.jsonl` (via `--output-format stream-json`). Handles rate-limit backoff, zombie task cleanup, and performance feedback injection between iterations.
+- **Beads (`bd`)** — A git-native CLI issue tracker (`.beads/issues.jsonl`). The parser detects `bd update`, `bd-finish.sh`, and `bd close` commands to determine task attribution and commit success.
+
+Without these, the improvement tracker (`improvement add/list/fix/search`) still works standalone.
+
 **Key Features:**
 - Dashboard with recent sessions, trends, and target comparison
 - Deep analysis with automatic trend comparison to previous runs
 - Improvement tracking (add, fix, search, list) with severity levels
-- JSONL session log parsing and bulk backfill
+- Parses `claude-iteration-N.jsonl` session transcripts produced by the ralph-wiggum loop
 - Efficiency targets: completion rate, narration-only turns, parallel tool calls, turns per session
 - SQLite-backed persistence with auto-created schema
 
