@@ -38,5 +38,14 @@
       "./webdev-token-input",
       "./webdev-filter-query-builder"
     ]
+  }, {
+    "name": "gtm-strategy",
+    "source": "./",
+    "description": "Go-to-market strategy skills — structure messy ideas into ICP segments and develop brand creative direction",
+    "strict": false,
+    "skills": [
+      "./idea-to-icp",
+      "./creative-direction"
+    ]
   }]
 }

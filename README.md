@@ -45,6 +45,28 @@ Coming soon.
 Add new categories here as the collection grows.
 -->
 
+## GTM & Strategy
+
+Go from a messy product idea to a structured go-to-market plan, then develop brand creative direction — all driven by structured workflows with phase gates and opinionated defaults.
+
+| Skill | Description | Use When |
+|-------|-------------|----------|
+| [idea-to-icp](idea-to-icp/) | Take a messy business idea and structure it into GTM primitives: Product, ICP segments, value prop, beachhead market, and channel strategy | "decompose my idea", "help me find my ICP", "who should I sell to", "idea to ICP", "structure my go-to-market" |
+| [creative-direction](creative-direction/) | Develop 3-5 distinct brand creative treatments from GTM data — tone, visual mood, messaging, and taglines | "creative direction", "brand treatments", "brand tone", "creative brief", "brand identity direction" |
+
+**GTM Pipeline:**
+
+```mermaid
+flowchart TD
+    A[Messy Product Idea] --> B[idea-to-icp]
+    B --> C[GTM Decomposition: Product + ICP + Value Prop + Channels]
+    C --> D[creative-direction]
+    D --> E[Brand Creative Direction: Tone + Visual Mood + Messaging]
+
+    style B fill:#4a9eff,color:#fff
+    style D fill:#4a9eff,color:#fff
+```
+
 ## Self-Improvement & Loop Analytics
 
 Track and optimize autonomous Claude Code session performance with metrics, trend analysis, and improvement tracking.
@@ -168,6 +190,21 @@ Once installed, just ask Claude Code to help with tasks:
 
 "Build a filter query builder with operators and date ranges"
 → Uses webdev-filter-query-builder skill
+```
+
+**GTM & strategy tasks:**
+```
+"I have an idea for a property management tool for small landlords"
+→ Uses idea-to-icp skill
+
+"Decompose my idea into ICP segments and channels"
+→ Uses idea-to-icp skill
+
+"Create brand creative direction from my GTM doc"
+→ Uses creative-direction skill
+
+"Give me brand treatments for my product"
+→ Uses creative-direction skill
 ```
 
 **Loop analytics tasks:**
