@@ -1,15 +1,15 @@
 ---
-description: Generate an image using Gemini API from a text prompt, with optional reference images
+description: Generate an image using the imagen CLI from a text prompt
 ---
 
 # Generate Image
 
-Generate images using Google Gemini's `gemini-3-pro-image-preview` model.
+Generate images using the `imagen` CLI — a unified interface for Gemini and OpenAI image models.
 
 ## Prerequisites
 
-1. **API Key**: Set `GOOGLE_API_KEY` or `GEMINI_API_KEY` environment variable
-2. **Dependencies**: `pip install google-genai pillow`
+1. **imagen CLI**: Must be installed (`curl -fsSL https://raw.githubusercontent.com/ozten/imagen/main/scripts/install.sh | bash`)
+2. **API Key**: `GEMINI_API_KEY` or `OPENAI_API_KEY` set via env var or `~/.config/imagen/config.toml`
 
 ## Usage
 
@@ -23,9 +23,9 @@ Generate images using Google Gemini's `gemini-3-pro-image-preview` model.
 /generate-image --aspect 16:9 cyberpunk cityscape at night with neon signs
 ```
 
-### With reference images (for style/character consistency)
+### With a specific model
 ```
-/generate-image --ref character.png the character from the reference as a samurai warrior
+/generate-image --model gpt-1.5 a watercolor painting of a mountain lake
 ```
 
 ## Options
@@ -33,17 +33,26 @@ Generate images using Google Gemini's `gemini-3-pro-image-preview` model.
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
 | `--aspect` | 1:1, 16:9, 9:16, 4:3, 3:4 | 1:1 | Output aspect ratio |
-| `--ref` | path(s) | none | Reference image(s) for consistency |
+| `--model` | nano-banana, gpt-1.5, gpt-1, gpt-1-mini | nano-banana | Image model |
+| `--size` | 1K, 2K, 4K | 1K | Image resolution |
+| `--format` | jpeg, png, webp | jpeg | Output format |
 | `--output` | path | auto-generated | Output file path |
+| `--count` | integer | 1 | Number of images |
 
 ## Implementation
 
-Run the generation script:
-
+First check that `imagen` is installed (`which imagen`). If not, ask the user if they'd like to install it:
 ```bash
-python scripts/generate_image.py "PROMPT" \
-    --aspect ASPECT_RATIO \
-    --reference REF_IMAGE \
+curl -fsSL https://raw.githubusercontent.com/ozten/imagen/main/scripts/install.sh | bash
+```
+
+Then check that the required API key is configured. If not, ask the user to set it up.
+
+Then run:
+```bash
+imagen "PROMPT" \
+    --model MODEL \
+    --aspect-ratio ASPECT_RATIO \
     --output OUTPUT_PATH
 ```
 
@@ -52,4 +61,4 @@ python scripts/generate_image.py "PROMPT" \
 Save generated images to the current working directory or specified path. Report:
 1. Output file path
 2. Generation parameters used
-3. Any errors or retries that occurred
+3. Any errors that occurred

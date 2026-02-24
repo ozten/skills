@@ -1,74 +1,141 @@
 ---
 name: nano-banana-image-gen
-description: Generate images using Google Gemini API. Use when the user says "nano banana", "generate an image", "create an image", "make me a picture", "image gen", "draw", "illustrate", or wants to create images from text prompts with optional reference images for style consistency.
+description: Generate images using the `imagen` CLI (Gemini and OpenAI models). Use when the user says "nano banana", "generate an image", "create an image", "make me a picture", "image gen", "draw", "illustrate", or wants to create images from text prompts.
 ---
 
-# Image Generation with Gemini
+# Image Generation with imagen CLI
 
-Generate images using Google Gemini's `gemini-3-pro-image-preview` model. Supports text prompts, reference images for style/character consistency, and multiple aspect ratios.
+Generate images using the `imagen` CLI — a unified interface for Google Gemini and OpenAI image models. Supports text prompts, multiple aspect ratios, output formats, batch generation, and more.
 
 ## Prerequisites
 
-1. **API Key**: Set `GOOGLE_API_KEY` or `GEMINI_API_KEY` environment variable
-2. **Dependencies**: Handled automatically by `uv run`, or install manually with `pip install google-genai pillow`
+1. **imagen CLI**: Install via `curl -fsSL https://raw.githubusercontent.com/ozten/imagen/main/scripts/install.sh | bash`
+2. **API Keys**: Configure via environment variables or config file (see below)
 
 ## Quick Start
 
 ```bash
-# Basic generation
-uv run nano-banana-image-gen/scripts/generate_image.py "A cat wearing a top hat" -o cat.jpg
+# Basic generation (uses default nano-banana / gemini-3-pro-image-preview)
+imagen "A cat wearing a top hat" -o cat.jpg
 
 # With aspect ratio
-uv run nano-banana-image-gen/scripts/generate_image.py "Mountain panorama" --aspect 16:9 -o mountains.jpg
+imagen "Mountain panorama" --aspect-ratio 16:9 -o mountains.jpg
 
-# With reference image for style consistency
-uv run nano-banana-image-gen/scripts/generate_image.py "Draw this character dancing" \
-    -r character_sheet.png -o dancing.jpg
+# Using OpenAI model
+imagen "Cyberpunk cityscape" -m gpt-1.5 -o city.png
+
+# Multiple images
+imagen "Abstract art" -n 3 -o art.jpg
+
+# Higher resolution
+imagen "Detailed landscape" --size 2K -o landscape.jpg
+
+# Read prompt from file
+imagen --prompt-file prompt.txt -o result.jpg
 ```
+
+## Models
+
+| Alias | Model ID | Provider |
+|-------|----------|----------|
+| `nano-banana` (default) | `gemini-3-pro-image-preview` | Gemini |
+| `gpt-1.5` | `gpt-image-1.5` | OpenAI |
+| `gpt-1` | `gpt-image-1` | OpenAI |
+| `gpt-1-mini` | `gpt-image-1-mini` | OpenAI |
 
 ## Options
 
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
-| `--aspect` | 1:1, 16:9, 9:16, 4:3, 3:4 | 1:1 | Output aspect ratio |
-| `-r, --reference` | path(s) | none | Reference image(s) for consistency (can specify multiple) |
-| `-o, --output` | path | output.jpg | Output file path |
-| `--retries` | integer | 3 | Max retry attempts on failure |
+| `-m, --model` | see Models table | `nano-banana` | Image generation model |
+| `-a, --aspect-ratio` | 1:1, 16:9, 9:16, 4:3, 3:4, etc. | 1:1 | Output aspect ratio |
+| `-s, --size` | 1K, 2K, 4K | 1K | Image resolution |
+| `-q, --quality` | auto, low, medium, high | auto | Quality (OpenAI models only) |
+| `-f, --format` | jpeg, png, webp | jpeg | Output format |
+| `-o, --output` | path | auto-generated | Output file path |
+| `-n, --count` | integer | 1 | Number of images to generate |
+| `-p, --prompt-file` | path | none | Read prompt from file |
+| `-v, --verbose` | flag | off | Verbose output |
 
 ## Workflow
 
 If the user provides `$ARGUMENTS`, treat them as the image prompt. Otherwise ask what they'd like to generate.
 
-1. Determine the prompt, output path, aspect ratio, and any reference images
-2. Run the generation script via Bash:
+### Step 0: Check imagen is installed
+
+Before generating, verify `imagen` is available:
+
+```bash
+which imagen
+```
+
+**If `imagen` is NOT found:**
+1. Tell the user that the `imagen` CLI is required but not installed
+2. Ask them: "Would you like me to install the `imagen` CLI? It's a lightweight Rust binary from https://github.com/ozten/imagen"
+3. If they agree, run:
    ```bash
-   uv run nano-banana-image-gen/scripts/generate_image.py "PROMPT" \
-       --aspect ASPECT_RATIO \
-       -r REF_IMAGE \
-       -o OUTPUT_PATH
+   curl -fsSL https://raw.githubusercontent.com/ozten/imagen/main/scripts/install.sh | bash
    ```
-3. Report the output file path and parameters used
-4. If generation fails, check:
-   - API key is set (`GOOGLE_API_KEY` or `GEMINI_API_KEY`)
-   - Reference images exist and are valid
-   - Prompt doesn't violate content policies
+4. After installation, verify it worked: `imagen --version`
+
+**If API keys are NOT configured:**
+
+Check for API keys:
+```bash
+# Check env vars
+echo "${GEMINI_API_KEY:+gemini_ok}" "${OPENAI_API_KEY:+openai_ok}"
+
+# Check config file
+cat ~/.config/imagen/config.toml 2>/dev/null
+```
+
+If no keys are found for the provider needed by the chosen model:
+1. Tell the user which API key is needed (Gemini for nano-banana, OpenAI for gpt-* models)
+2. Ask them to set up keys via environment variable or config file:
+   - **Environment variable**: `export GEMINI_API_KEY="your-key"` or `export OPENAI_API_KEY="your-key"`
+   - **Config file** (`~/.config/imagen/config.toml`):
+     ```toml
+     [keys]
+     gemini = "your-gemini-api-key"
+     openai = "your-openai-api-key"
+     ```
+3. Do NOT proceed with generation until at least one relevant key is configured
+
+### Step 1: Generate the image
+
+Determine the prompt, output path, model, aspect ratio, and other options, then run:
+
+```bash
+imagen "PROMPT" \
+    --model MODEL \
+    --aspect-ratio ASPECT_RATIO \
+    --size SIZE \
+    --format FORMAT \
+    --output OUTPUT_PATH
+```
+
+Only include flags that differ from defaults.
+
+### Step 2: Report results
+
+Report the output file path and parameters used. If generation fails, check:
+- API key is configured for the chosen provider
+- Prompt doesn't violate content policies
+- Model alias is valid
 
 ## Batch Generation
 
-For multiple images (e.g., comic panels, storyboards), use the Python API:
+For multiple images, either use `-n` for the same prompt or run `imagen` multiple times with different prompts:
 
-```python
-from nano-banana-image-gen.scripts.generate_image import generate_batch
-from pathlib import Path
+```bash
+# Same prompt, multiple variations
+imagen "Abstract art" -n 3 -o abstract.jpg
 
-prompts = [
-    {"id": "panel_1", "prompt": "A sunny beach", "references": []},
-    {"id": "panel_2", "prompt": "Same beach at sunset", "references": ["panel_1.jpg"]},
-]
-
-results = generate_batch(prompts, Path("./output"), aspect_ratio="16:9")
+# Different prompts in sequence
+imagen "Panel 1: A sunny beach" -o panel_1.jpg
+imagen "Panel 2: Same beach at sunset" -o panel_2.jpg
 ```
 
 ## Integration
 
-Other skills and pipelines can delegate image generation to this skill by invoking the generation script or importing the Python API.
+Other skills and pipelines can delegate image generation to this skill by invoking the `imagen` CLI directly.

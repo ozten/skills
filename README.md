@@ -109,6 +109,31 @@ Build accessible, production-ready autocomplete, token inputs, and filter query 
 - Context-dependent suggestions and caching
 - Filter AST representation and query serialization
 
+## Image Generation - nano-banana-image-gen
+
+Generate images using the [`imagen` CLI](https://github.com/ozten/imagen) — a unified Rust binary for Gemini and OpenAI image models. Supports text prompts, multiple aspect ratios, resolutions, output formats, and batch generation.
+
+| Skill | Description | Use When |
+|-------|-------------|----------|
+| [nano-banana-image-gen](nano-banana-image-gen/) | Generate images via `imagen` CLI (Gemini + OpenAI) | "nano banana", "generate an image", "draw", "illustrate", "make a picture" |
+
+**Setup:**
+
+```bash
+# Install the imagen CLI
+curl -fsSL https://raw.githubusercontent.com/ozten/imagen/main/scripts/install.sh | bash
+
+# Configure API keys (env vars or config file)
+export GEMINI_API_KEY="your-gemini-api-key"
+export OPENAI_API_KEY="your-openai-api-key"
+
+# Or edit ~/.config/imagen/config.toml
+```
+
+**Models:** `nano-banana` (Gemini, default), `gpt-1.5`, `gpt-1`, `gpt-1-mini` (OpenAI)
+
+> **Note:** If `imagen` isn't installed when you try to generate an image, the skill will offer to install it for you.
+
 ## Webcomic - comic-strip-pipeline
 
 Go from a script or story to a prepared script ready for nano-banana or another image generator.
@@ -205,6 +230,18 @@ Once installed, just ask Claude Code to help with tasks:
 
 "Give me brand treatments for my product"
 → Uses creative-direction skill
+```
+
+**Image generation tasks:**
+```
+"Generate an image of a cat in a spacesuit"
+→ Uses nano-banana-image-gen skill
+
+"Nano banana: cyberpunk cityscape at sunset"
+→ Uses nano-banana-image-gen skill
+
+"Draw a watercolor mountain landscape using gpt-1.5"
+→ Uses nano-banana-image-gen skill
 ```
 
 **Loop analytics tasks:**
