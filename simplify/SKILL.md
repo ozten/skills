@@ -36,17 +36,13 @@ Then, for the work product, answer:
 
 ## Output Format
 
-### Audit Snapshot
+### Verdict
 
-- **Verdict:** SIMPLE / OVERENGINEERED / UNCLEAR
-- One sentence explanation
-- Rewritten one-sentence core purpose
-- Top 5 bloat signals
-- Top 5 simplification levers
+**SIMPLE / OVERENGINEERED / UNCLEAR** — one sentence explanation, then restate core purpose in one sentence.
 
-### Decision List
+### Decisions
 
-Each decision:
+Each bloat signal becomes a decision. Only list what exists.
 
 ```
 [ID]
@@ -54,13 +50,6 @@ CUT/KEEP/REVISE: <thing>
 Rationale: <why>
 Reversible: Yes/No
 ```
-
-### Minimal Version
-
-- Describe the simplest form that retains full quality
-- One primary flow
-- One primary metric: quality retained while waste eliminated
-- One primary user
 
 ### Approval
 
