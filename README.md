@@ -77,12 +77,13 @@ flowchart TD
     style D fill:#4a9eff,color:#fff
 ```
 
-## Self-Improvement & Loop Analytics
+## Self-Improvement & Analysis
 
-Track and optimize autonomous Claude Code session performance with metrics, trend analysis, and improvement tracking.
+Tools for root cause analysis, retrospectives, and optimizing autonomous session performance.
 
 | Skill | Description | Use When |
 |-------|-------------|----------|
+| [five-whys](five-whys/) | Root cause analysis via iterative "Why?" questions | Analyzing failures, post-mortems, retrospectives, debugging repeated mistakes, reflecting on what went wrong |
 | [self-improvement](self-improvement/) | Analyze session efficiency, track improvements, view trends | "check loop metrics", "how are sessions doing", "analyze iterations", "loop performance", "session efficiency" |
 
 **Prerequisites:** This skill is built for projects using an autonomous loop setup:
@@ -263,15 +264,18 @@ Once installed, just ask Claude Code to help with tasks:
 → Uses nano-banana-image-gen skill
 ```
 
-**Loop analytics tasks:**
+**Self-improvement & analysis tasks:**
 ```
+"Why did that deploy fail? Let's do a 5 whys analysis"
+→ Uses five-whys skill
+
+"Help me figure out the root cause of this bug recurring"
+→ Uses five-whys skill
+
 "Check my loop metrics"
 → Uses self-improvement skill
 
 "Analyze the last 20 iterations"
-→ Uses self-improvement skill
-
-"Add an improvement for high narration rate"
 → Uses self-improvement skill
 ```
 

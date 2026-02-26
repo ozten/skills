@@ -25,6 +25,10 @@
     "source": "./nano-banana-image-gen",
     "description": "Generate images using Google Gemini API"
   }, {
+    "name": "five-whys",
+    "source": "./five-whys",
+    "description": "Root cause analysis technique — iteratively ask Why? to find systemic causes and actionable changes"
+  }, {
     "name": "self-improvement",
     "source": "./self-improvement",
     "description": "Analyze autonomous loop session efficiency, track improvements, and view trends"
