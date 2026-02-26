@@ -1,15 +1,16 @@
 # nano-banana-image-gen
 
-Generate images using Google Gemini API (`gemini-3-pro-image-preview`).
+Generate images using the `imagen` CLI — a unified interface for Google Gemini and OpenAI image models.
 
 ## Features
 
 - **Text-to-image generation** from natural language prompts
-- **Reference images** for style/character consistency
-- **Multiple aspect ratios**: 1:1, 16:9, 9:16, 4:3, 3:4
-- **Automatic retry** with exponential backoff
-- **Batch generation** support for pipelines
-- **PEP 723 compatible** - works with `uv run` (auto-installs deps)
+- **Multiple providers**: Gemini (`nano-banana`) and OpenAI (`gpt-1.5`, `gpt-1`, `gpt-1-mini`)
+- **Multiple aspect ratios**: 1:1, 16:9, 9:16, 4:3, 3:4, and more
+- **Resolution control**: 1K, 2K, 4K
+- **Output formats**: jpeg, png, webp
+- **Batch generation**: multiple images with `-n`
+- **Prompt from file**: read prompts from text files
 
 ## Installation
 
@@ -21,37 +22,32 @@ Generate images using Google Gemini API (`gemini-3-pro-image-preview`).
 /plugin install nano-banana-image-gen@skills
 ```
 
-### 2. Set API Key
+### 2. Install imagen CLI
 
 ```bash
-export GOOGLE_API_KEY="your-api-key"
-# or
-export GEMINI_API_KEY="your-api-key"
+curl -fsSL https://raw.githubusercontent.com/ozten/imagen/main/scripts/install.sh | bash
 ```
 
-### 3. Dependencies (choose one)
+### 3. Set API Keys
 
-**Option A: Use uv (recommended - zero setup)**
-
-If you have `uv` installed, dependencies are handled automatically via PEP 723 inline metadata. Just run:
+**Option A: Environment variables**
 
 ```bash
-uv run scripts/generate_image.py "your prompt" -o output.jpg
+export GEMINI_API_KEY="your-gemini-api-key"
+export OPENAI_API_KEY="your-openai-api-key"
 ```
 
-**Option B: pip install**
+**Option B: Config file** (`~/.config/imagen/config.toml`)
 
-```bash
-pip install google-genai pillow
+```toml
+[keys]
+gemini = "your-gemini-api-key"      # or set GEMINI_API_KEY env var
+openai = "your-openai-api-key"      # or set OPENAI_API_KEY env var
 ```
 
-**Option C: uv add to project**
+You only need keys for the providers you plan to use. Gemini for `nano-banana` (default), OpenAI for `gpt-*` models.
 
-```bash
-uv add google-genai pillow
-```
-
-> **Note:** On session start, the plugin checks for dependencies and shows a warning if missing.
+> **Note:** On session start, the plugin checks for `imagen` and API keys and shows a warning if missing. At runtime, the skill will offer to install `imagen` if it's not found.
 
 ## Usage
 
@@ -63,7 +59,8 @@ uv add google-genai pillow
 
 With options:
 ```
-/generate-image --aspect 16:9 --ref style_reference.png cyberpunk street scene
+/generate-image --aspect 16:9 cyberpunk street scene
+/generate-image --model gpt-1.5 watercolor mountain landscape
 ```
 
 ### Delegate to Agent
@@ -74,21 +71,39 @@ Other agents/pipelines can delegate to the `image-generator` agent:
 Use the **image-generator** agent to generate an image of [description].
 ```
 
-### Direct Script Usage
+### Direct CLI Usage
 
 ```bash
-# With uv (recommended - auto-handles deps)
-uv run scripts/generate_image.py "A dragon" -o dragon.jpg
+# Basic generation (default: nano-banana / Gemini)
+imagen "A dragon" -o dragon.jpg
 
 # With aspect ratio
-uv run scripts/generate_image.py "Landscape" --aspect 16:9 -o landscape.jpg
+imagen "Landscape" --aspect-ratio 16:9 -o landscape.jpg
 
-# With reference image
-uv run scripts/generate_image.py "This character as a knight" -r char.png -o knight.jpg
+# OpenAI model
+imagen "Cyberpunk city" -m gpt-1.5 -o city.png
 
-# Or with pip (after installing deps)
-python scripts/generate_image.py "A dragon" -o dragon.jpg
+# Multiple images
+imagen "Abstract art" -n 3 -o art.jpg
+
+# Higher resolution
+imagen "Detailed portrait" --size 2K -o portrait.jpg
+
+# PNG format
+imagen "Logo design" --format png -o logo.png
+
+# Prompt from file
+imagen --prompt-file prompt.txt -o result.jpg
 ```
+
+## Models
+
+| Alias | Model ID | Provider | API Key |
+|-------|----------|----------|---------|
+| `nano-banana` (default) | `gemini-3-pro-image-preview` | Gemini | `GEMINI_API_KEY` |
+| `gpt-1.5` | `gpt-image-1.5` | OpenAI | `OPENAI_API_KEY` |
+| `gpt-1` | `gpt-image-1` | OpenAI | `OPENAI_API_KEY` |
+| `gpt-1-mini` | `gpt-image-1-mini` | OpenAI | `OPENAI_API_KEY` |
 
 ## Integration with Other Plugins
 
@@ -99,43 +114,6 @@ This plugin is designed to be used by other pipelines. For example, a comic stri
 Use the **image-generator** agent to create an image for each panel:
 - Panel 1: "Wide shot of coffee shop interior..."
 - Panel 2: "Close-up of character's surprised face..."
-```
-
-## API
-
-### generate_image()
-
-```python
-from scripts.generate_image import generate_image
-from pathlib import Path
-
-result = generate_image(
-    prompt="A serene mountain lake at dawn",
-    output_path=Path("lake.jpg"),
-    reference_images=[Path("style_ref.png")],  # optional
-    aspect_ratio="16:9",
-    model="gemini-3-pro-image-preview",
-    max_retries=3,
-)
-```
-
-### generate_batch()
-
-```python
-from scripts.generate_image import generate_batch
-from pathlib import Path
-
-prompts = [
-    {"id": "scene_1", "prompt": "A forest clearing", "references": []},
-    {"id": "scene_2", "prompt": "Same forest at night", "references": []},
-]
-
-results = generate_batch(
-    prompts=prompts,
-    output_dir=Path("./output"),
-    aspect_ratio="16:9",
-)
-# Returns: {"scene_1": Path("output/scene_1.jpg"), "scene_2": Path("output/scene_2.jpg")}
 ```
 
 ## Plugin Structure
@@ -151,19 +129,14 @@ nano-banana-image-gen/
 ├── hooks/
 │   └── hooks.json           # SessionStart dep check
 ├── scripts/
-│   ├── check_deps.sh        # Dependency checker
-│   └── generate_image.py    # Core generation logic (PEP 723)
+│   └── check_deps.sh        # Dependency checker
 └── README.md
 ```
 
 ## Dependency Management
 
-This plugin uses three strategies to handle Python dependencies:
+This plugin checks for the `imagen` CLI and API keys:
 
-1. **SessionStart Hook** - Warns on missing deps when session starts
-2. **PEP 723 Inline Metadata** - `uv run` auto-installs deps in isolated env
-3. **Graceful Failure** - Script prints install instructions if deps missing
-
-This means users can either:
-- Use `uv run` and never manually install anything
-- Use `pip install` once and use `python` directly
+1. **SessionStart Hook** - Warns on missing `imagen` CLI or API keys when session starts
+2. **Runtime Check** - If `imagen` is not installed when you try to generate, the skill offers to install it for you
+3. **Graceful Guidance** - Clear instructions for setting up API keys if missing

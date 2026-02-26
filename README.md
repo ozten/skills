@@ -55,6 +55,50 @@ Tools for auditing and simplifying ideas, products, and systems.
 
 The simplify skill produces structured audit reports with phased YES/NO/DEFER decision lists. It exposes complexity and prepares batched decisions—it does not execute changes.
 
+## GTM & Strategy
+
+Go from a messy product idea to a structured go-to-market plan, then develop brand creative direction — all driven by structured workflows with phase gates and opinionated defaults.
+
+| Skill | Description | Use When |
+|-------|-------------|----------|
+| [idea-to-icp](idea-to-icp/) | Take a messy business idea and structure it into GTM primitives: Product, ICP segments, value prop, beachhead market, and channel strategy | "decompose my idea", "help me find my ICP", "who should I sell to", "idea to ICP", "structure my go-to-market" |
+| [creative-direction](creative-direction/) | Develop 3-5 distinct brand creative treatments from GTM data — tone, visual mood, messaging, and taglines | "creative direction", "brand treatments", "brand tone", "creative brief", "brand identity direction" |
+
+**GTM Pipeline:**
+
+```mermaid
+flowchart TD
+    A[Messy Product Idea] --> B[idea-to-icp]
+    B --> C[GTM Decomposition: Product + ICP + Value Prop + Channels]
+    C --> D[creative-direction]
+    D --> E[Brand Creative Direction: Tone + Visual Mood + Messaging]
+
+    style B fill:#4a9eff,color:#fff
+    style D fill:#4a9eff,color:#fff
+```
+
+## Self-Improvement & Loop Analytics
+
+Track and optimize autonomous Claude Code session performance with metrics, trend analysis, and improvement tracking.
+
+| Skill | Description | Use When |
+|-------|-------------|----------|
+| [self-improvement](self-improvement/) | Analyze session efficiency, track improvements, view trends | "check loop metrics", "how are sessions doing", "analyze iterations", "loop performance", "session efficiency" |
+
+**Prerequisites:** This skill is built for projects using an autonomous loop setup:
+- **ralph-wiggum loop** — A bash script that runs Claude Code headlessly in batches, saving each session transcript as `claude-iteration-N.jsonl` (via `--output-format stream-json`). Handles rate-limit backoff, zombie task cleanup, and performance feedback injection between iterations.
+- **Beads (`bd`)** — A git-native CLI issue tracker (`.beads/issues.jsonl`). The parser detects `bd update`, `bd-finish.sh`, and `bd close` commands to determine task attribution and commit success.
+
+Without these, the improvement tracker (`improvement add/list/fix/search`) still works standalone.
+
+**Key Features:**
+- Dashboard with recent sessions, trends, and target comparison
+- Deep analysis with automatic trend comparison to previous runs
+- Improvement tracking (add, fix, search, list) with severity levels
+- Parses `claude-iteration-N.jsonl` session transcripts produced by the ralph-wiggum loop
+- Efficiency targets: completion rate, narration-only turns, parallel tool calls, turns per session
+- SQLite-backed persistence with auto-created schema
+
 ## Web Development & UI Components
 
 Build accessible, production-ready autocomplete, token inputs, and filter query builders using proven patterns from Downshift, Headless UI, and tools like Datadog and Linear.
@@ -74,6 +118,31 @@ Build accessible, production-ready autocomplete, token inputs, and filter query 
 - Focus management solutions (blur vs click-outside, cursor jumping)
 - Context-dependent suggestions and caching
 - Filter AST representation and query serialization
+
+## Image Generation - nano-banana-image-gen
+
+Generate images using the [`imagen` CLI](https://github.com/ozten/imagen) — a unified Rust binary for Gemini and OpenAI image models. Supports text prompts, multiple aspect ratios, resolutions, output formats, and batch generation.
+
+| Skill | Description | Use When |
+|-------|-------------|----------|
+| [nano-banana-image-gen](nano-banana-image-gen/) | Generate images via `imagen` CLI (Gemini + OpenAI) | "nano banana", "generate an image", "draw", "illustrate", "make a picture" |
+
+**Setup:**
+
+```bash
+# Install the imagen CLI
+curl -fsSL https://raw.githubusercontent.com/ozten/imagen/main/scripts/install.sh | bash
+
+# Configure API keys (env vars or config file)
+export GEMINI_API_KEY="your-gemini-api-key"
+export OPENAI_API_KEY="your-openai-api-key"
+
+# Or edit ~/.config/imagen/config.toml
+```
+
+**Models:** `nano-banana` (Gemini, default), `gpt-1.5`, `gpt-1`, `gpt-1-mini` (OpenAI)
+
+> **Note:** If `imagen` isn't installed when you try to generate an image, the skill will offer to install it for you.
 
 ## Webcomic - comic-strip-pipeline
 
@@ -165,6 +234,45 @@ Once installed, just ask Claude Code to help with tasks:
 
 "Give me advice on simplifying this architecture"
 → Uses simplify skill
+```
+
+**GTM & strategy tasks:**
+```
+"I have an idea for a property management tool for small landlords"
+→ Uses idea-to-icp skill
+
+"Decompose my idea into ICP segments and channels"
+→ Uses idea-to-icp skill
+
+"Create brand creative direction from my GTM doc"
+→ Uses creative-direction skill
+
+"Give me brand treatments for my product"
+→ Uses creative-direction skill
+```
+
+**Image generation tasks:**
+```
+"Generate an image of a cat in a spacesuit"
+→ Uses nano-banana-image-gen skill
+
+"Nano banana: cyberpunk cityscape at sunset"
+→ Uses nano-banana-image-gen skill
+
+"Draw a watercolor mountain landscape using gpt-1.5"
+→ Uses nano-banana-image-gen skill
+```
+
+**Loop analytics tasks:**
+```
+"Check my loop metrics"
+→ Uses self-improvement skill
+
+"Analyze the last 20 iterations"
+→ Uses self-improvement skill
+
+"Add an improvement for high narration rate"
+→ Uses self-improvement skill
 ```
 
 Or reference skills directly when starting a task:

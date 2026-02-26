@@ -1,7 +1,7 @@
 {
   "name": "nano-banana-image-gen",
-  "description": "Generate images using Google Gemini API (gemini-3-pro-image-preview). Supports text prompts and reference images for style/character consistency.",
-  "version": "1.0.0",
+  "description": "Generate images using the imagen CLI — unified interface for Gemini and OpenAI image models. Supports text prompts, multiple aspect ratios, resolutions, and output formats.",
+  "version": "2.0.0",
   "author": {
     "name": "Austin"
   }

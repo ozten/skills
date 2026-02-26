@@ -25,6 +25,10 @@
     "source": "./nano-banana-image-gen",
     "description": "Generate images using Google Gemini API"
   }, {
+    "name": "self-improvement",
+    "source": "./self-improvement",
+    "description": "Analyze autonomous loop session efficiency, track improvements, and view trends"
+  }, {
     "name": "webdev-ui-components",
     "source": "./",
     "description": "Web development skills for building accessible autocomplete, token inputs, and filter query builders",
@@ -38,5 +42,14 @@
     "name": "simplify",
     "source": "./simplify",
     "description": "Radical Simplicity & Candor Audit for ideas, products, and systems"
+  }, {
+    "name": "gtm-strategy",
+    "source": "./",
+    "description": "Go-to-market strategy skills — structure messy ideas into ICP segments and develop brand creative direction",
+    "strict": false,
+    "skills": [
+      "./idea-to-icp",
+      "./creative-direction"
+    ]
   }]
 }

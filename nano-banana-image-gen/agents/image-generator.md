@@ -1,96 +1,97 @@
 ---
 name: image-generator
-description: Generate images using Gemini API. Delegate to this agent when you need to create images from text prompts, optionally with reference images for style consistency.
+description: Generate images using the imagen CLI. Delegate to this agent when you need to create images from text prompts using Gemini or OpenAI models.
 tools: Read, Bash
 ---
 
 # Image Generator Agent
 
-Generate images using Google Gemini's `gemini-3-pro-image-preview` model.
+Generate images using the `imagen` CLI — a unified interface for Gemini and OpenAI image models.
 
 ## Prerequisites
 
-- `GOOGLE_API_KEY` or `GEMINI_API_KEY` environment variable set
-- `uv` installed (recommended) OR `google-genai` and `pillow` packages
+- `imagen` CLI installed (install: `curl -fsSL https://raw.githubusercontent.com/ozten/imagen/main/scripts/install.sh | bash`)
+- API key configured via env var (`GEMINI_API_KEY` / `OPENAI_API_KEY`) or `~/.config/imagen/config.toml`
+
+## Before Generating
+
+Always verify setup first:
+
+```bash
+# Check imagen is installed
+which imagen
+
+# Check for API keys
+echo "${GEMINI_API_KEY:+gemini_ok}" "${OPENAI_API_KEY:+openai_ok}"
+```
+
+If `imagen` is not installed, ask the user if they'd like to install it, then run:
+```bash
+curl -fsSL https://raw.githubusercontent.com/ozten/imagen/main/scripts/install.sh | bash
+```
+
+If no API keys are found, ask the user to configure one before proceeding.
+
+## Models
+
+| Alias | Model ID | Provider |
+|-------|----------|----------|
+| `nano-banana` (default) | `gemini-3-pro-image-preview` | Gemini |
+| `gpt-1.5` | `gpt-image-1.5` | OpenAI |
+| `gpt-1` | `gpt-image-1` | OpenAI |
+| `gpt-1-mini` | `gpt-image-1-mini` | OpenAI |
 
 ## Capabilities
 
 1. **Text-to-image**: Generate from text prompts
-2. **Reference-guided**: Use reference images for style/character consistency
-3. **Aspect ratios**: 1:1, 16:9, 9:16, 4:3, 3:4
-4. **Batch generation**: Multiple images in sequence
-
-## Script Location
-
-```
-scripts/generate_image.py
-```
+2. **Multiple providers**: Gemini and OpenAI models
+3. **Aspect ratios**: 1:1, 16:9, 9:16, 4:3, 3:4, etc.
+4. **Resolution control**: 1K, 2K, 4K
+5. **Batch generation**: Multiple images via `-n` flag
+6. **Output formats**: jpeg, png, webp
 
 ## Single Image Generation
 
-**With uv (recommended - auto-handles dependencies):**
 ```bash
-uv run scripts/generate_image.py "PROMPT" \
-    --output OUTPUT_PATH \
-    --aspect ASPECT_RATIO \
-    --reference REF_IMAGE  # optional, can specify multiple
-```
-
-**With pip (if uv unavailable):**
-```bash
-python scripts/generate_image.py "PROMPT" -o OUTPUT_PATH
-```
-
-**Examples:**
-
-```bash
-# Basic generation
-uv run scripts/generate_image.py "A fox in a forest" -o fox.jpg
+# Basic (default: nano-banana model, 1:1, 1K, jpeg)
+imagen "A fox in a forest" -o fox.jpg
 
 # With aspect ratio
-uv run scripts/generate_image.py "Mountain panorama" --aspect 16:9 -o mountains.jpg
+imagen "Mountain panorama" --aspect-ratio 16:9 -o mountains.jpg
 
-# With reference image
-uv run scripts/generate_image.py "Draw this character dancing" \
-    -r character_sheet.png \
-    -o dancing.jpg
+# OpenAI model
+imagen "Watercolor landscape" -m gpt-1.5 -o landscape.png
 
-# Multiple references
-uv run scripts/generate_image.py "These two characters having coffee" \
-    -r char1.png -r char2.png \
-    -o coffee_scene.jpg
+# Higher resolution
+imagen "Detailed portrait" --size 2K -o portrait.jpg
+
+# Read prompt from file
+imagen --prompt-file prompt.txt -o result.jpg
 ```
 
-## Batch Generation (Programmatic)
+## Batch Generation
 
-For multiple images, use the Python API:
+```bash
+# Multiple variations of same prompt
+imagen "Abstract art" -n 3 -o abstract.jpg
 
-```python
-from scripts.generate_image import generate_batch
-from pathlib import Path
-
-prompts = [
-    {"id": "img_1", "prompt": "A sunny beach", "references": []},
-    {"id": "img_2", "prompt": "Same beach at sunset", "references": ["img_1.jpg"]},
-]
-
-results = generate_batch(prompts, Path("./output"), aspect_ratio="16:9")
+# Different prompts in sequence
+imagen "Panel 1: A sunny beach" -o panel_1.jpg
+imagen "Panel 2: Same beach at sunset" -o panel_2.jpg
 ```
 
 ## Error Handling
 
-The script includes automatic retry with exponential backoff (3 attempts by default). If generation fails:
-
-1. Check API key is set correctly
-2. Verify reference images exist and are valid
+If generation fails:
+1. Verify `imagen` is installed and in PATH
+2. Check API key is configured for the chosen provider
 3. Check prompt doesn't violate content policies
-4. Try reducing prompt complexity
+4. Try with `--verbose` flag for detailed error info
 
 ## Output
 
 Report for each generated image:
 1. Output file path
 2. Prompt used
-3. Reference images (if any)
-4. Aspect ratio
-5. Success/failure status
+3. Model and settings
+4. Success/failure status

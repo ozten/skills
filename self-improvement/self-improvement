@@ -1,0 +1,836 @@
+#!/usr/bin/env python3
+"""
+self-improvement — CLI tool for tracking autonomous loop session metrics and improvements.
+
+Usage:
+    tools/self-improvement log <jsonl-file>
+    tools/self-improvement backfill [--from N] [--to N]
+    tools/self-improvement status [--last N]
+    tools/self-improvement analyze [--last N]
+    tools/self-improvement targets
+    tools/self-improvement improvement add --title "..." --severity high|medium|low [--desc "..."] [--rec "..."] [--tags "..."]
+    tools/self-improvement improvement fix <id> [--impact "..."]
+    tools/self-improvement improvement list [--status open|fixed|wontfix|monitoring]
+    tools/self-improvement improvement search <query>
+    tools/self-improvement seed
+"""
+
+import argparse
+import json
+import os
+import re
+import sqlite3
+import sys
+from datetime import datetime
+from pathlib import Path
+
+DB_PATH = Path(__file__).parent / "self-improvement.db"
+PROJECT_ROOT = Path(__file__).parent.parent
+
+
+# ─── Database Setup ───────────────────────────────────────────────────────────
+
+def get_db():
+    """Get a database connection, creating tables if needed."""
+    db = sqlite3.connect(str(DB_PATH))
+    db.row_factory = sqlite3.Row
+    db.execute("PRAGMA journal_mode=WAL")
+    _create_tables(db)
+    return db
+
+
+def _create_tables(db):
+    db.executescript("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            iteration_id INTEGER UNIQUE NOT NULL,
+            timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+            bead_id TEXT,
+            bead_title TEXT,
+            assistant_turns INTEGER NOT NULL DEFAULT 0,
+            narration_only_turns INTEGER NOT NULL DEFAULT 0,
+            parallel_turns INTEGER NOT NULL DEFAULT 0,
+            tool_calls INTEGER NOT NULL DEFAULT 0,
+            committed INTEGER NOT NULL DEFAULT 0,
+            outcome TEXT NOT NULL DEFAULT 'unknown',
+            cost_estimate REAL,
+            test_runs INTEGER NOT NULL DEFAULT 0,
+            lint_runs INTEGER NOT NULL DEFAULT 0,
+            full_suite_runs INTEGER NOT NULL DEFAULT 0,
+            notes TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS improvements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ref_id TEXT UNIQUE,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            fixed_at TEXT,
+            severity TEXT NOT NULL CHECK (severity IN ('high', 'medium', 'low')),
+            status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'fixed', 'wontfix', 'monitoring')),
+            title TEXT NOT NULL,
+            description TEXT,
+            recommendation TEXT,
+            measured_impact TEXT,
+            related_iterations TEXT,
+            tags TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS analysis_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+            iteration_range_start INTEGER NOT NULL,
+            iteration_range_end INTEGER NOT NULL,
+            sessions_analyzed INTEGER NOT NULL,
+            completion_rate REAL,
+            avg_narration_pct REAL,
+            avg_parallel_pct REAL,
+            total_turns INTEGER,
+            total_waste_turns INTEGER,
+            summary TEXT,
+            recommendations_json TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_sessions_iteration ON sessions(iteration_id);
+        CREATE INDEX IF NOT EXISTS idx_improvements_status ON improvements(status);
+        CREATE INDEX IF NOT EXISTS idx_improvements_severity ON improvements(severity);
+    """)
+    db.commit()
+
+
+# ─── JSONL Parsing ────────────────────────────────────────────────────────────
+
+def parse_jsonl(filepath):
+    """Parse a Claude iteration JSONL file and extract session metrics."""
+    metrics = {
+        "assistant_turns": 0,
+        "narration_only_turns": 0,
+        "parallel_turns": 0,
+        "tool_calls": 0,
+        "committed": False,
+        "outcome": "unknown",
+        "bead_id": None,
+        "bead_title": None,
+        "test_runs": 0,
+        "lint_runs": 0,
+        "full_suite_runs": 0,
+        "cost_estimate": 0.0,
+    }
+
+    events = []
+    with open(filepath) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                events.append(obj)
+            except json.JSONDecodeError:
+                continue
+
+    for obj in events:
+        etype = obj.get("type", "")
+
+        # Track costs from usage data
+        usage = obj.get("usage", {})
+        if usage:
+            # Rough cost estimate: input tokens at $15/M, output at $75/M (Opus pricing)
+            input_tokens = usage.get("input_tokens", 0)
+            output_tokens = usage.get("output_tokens", 0)
+            metrics["cost_estimate"] += (input_tokens * 15 + output_tokens * 75) / 1_000_000
+
+        if etype != "assistant":
+            continue
+
+        metrics["assistant_turns"] += 1
+        content = obj.get("message", {}).get("content", [])
+
+        if isinstance(content, str):
+            # Pure text turn
+            metrics["narration_only_turns"] += 1
+            continue
+
+        tool_uses = []
+        text_blocks = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_use":
+                tool_uses.append(block)
+            elif block.get("type") == "text":
+                text_blocks.append(block)
+
+        # Classify the turn
+        if len(tool_uses) == 0 and len(text_blocks) > 0:
+            metrics["narration_only_turns"] += 1
+        if len(tool_uses) >= 2:
+            metrics["parallel_turns"] += 1
+        metrics["tool_calls"] += len(tool_uses)
+
+        # Extract bead ID from bd update --status in_progress
+        for tu in tool_uses:
+            tool_input = tu.get("input", {})
+            cmd = tool_input.get("command", "")
+
+            # Detect bead claim
+            m = re.search(r"bd update (\S+) --status.?in.?progress", cmd)
+            if m and not metrics["bead_id"]:
+                raw_id = m.group(1)
+                # Strip project prefix if present
+                metrics["bead_id"] = raw_id.split("-")[-1] if "-" in raw_id else raw_id
+
+            # Detect bd-finish (committed) — this is the definitive commit signal
+            if "bd-finish" in cmd:
+                metrics["committed"] = True
+                # Try to extract bead title from the commit message
+                tm = re.search(r'bd-finish\.sh\s+\S+\s+"([^"]+)"', cmd)
+                if tm:
+                    metrics["bead_title"] = tm.group(1)
+
+            # Note: "bd close" alone does NOT mean committed.
+            # Sessions may run "bd close" on sub-beads without calling bd-finish.
+            # Only bd-finish (which includes git commit + push) counts as committed.
+
+            # Detect test runs
+            if "phpunit" in cmd:
+                metrics["test_runs"] += 1
+                if "--filter" not in cmd:
+                    metrics["full_suite_runs"] += 1
+
+            # Detect lint runs
+            if "lint:fix" in cmd or "lint" in cmd and "composer" in cmd:
+                metrics["lint_runs"] += 1
+
+        # Also scan text blocks for bead info
+        for tb in text_blocks:
+            text = tb.get("text", "")
+            if not metrics["bead_id"]:
+                m = re.search(r"bd update (\S+) --status.?in.?progress", text)
+                if m:
+                    raw_id = m.group(1)
+                    metrics["bead_id"] = raw_id.split("-")[-1] if "-" in raw_id else raw_id
+
+    # Determine outcome
+    if metrics["committed"]:
+        metrics["outcome"] = "completed"
+    elif events:
+        last = events[-1]
+        if last.get("type") == "result":
+            if last.get("is_error"):
+                metrics["outcome"] = "failed"
+            else:
+                metrics["outcome"] = "cutoff"  # Finished without committing
+        else:
+            metrics["outcome"] = "cutoff"
+    else:
+        metrics["outcome"] = "unknown"
+
+    return metrics
+
+
+# ─── Commands ─────────────────────────────────────────────────────────────────
+
+def cmd_log(args):
+    """Parse a JSONL file and insert a session record."""
+    filepath = args.file
+    if not os.path.exists(filepath):
+        print(f"Error: File not found: {filepath}", file=sys.stderr)
+        return 1
+
+    # Extract iteration ID from filename
+    m = re.search(r"iteration-(\d+)", filepath)
+    if not m:
+        print(f"Error: Cannot extract iteration ID from filename: {filepath}", file=sys.stderr)
+        return 1
+    iteration_id = int(m.group(1))
+
+    metrics = parse_jsonl(filepath)
+    db = get_db()
+
+    # Check if already logged
+    existing = db.execute("SELECT id FROM sessions WHERE iteration_id = ?", (iteration_id,)).fetchone()
+    if existing:
+        # Update existing record
+        db.execute("""
+            UPDATE sessions SET
+                bead_id = ?, bead_title = ?, assistant_turns = ?, narration_only_turns = ?,
+                parallel_turns = ?, tool_calls = ?, committed = ?, outcome = ?,
+                cost_estimate = ?, test_runs = ?, lint_runs = ?, full_suite_runs = ?
+            WHERE iteration_id = ?
+        """, (
+            metrics["bead_id"], metrics["bead_title"], metrics["assistant_turns"],
+            metrics["narration_only_turns"], metrics["parallel_turns"], metrics["tool_calls"],
+            1 if metrics["committed"] else 0, metrics["outcome"],
+            round(metrics["cost_estimate"], 2), metrics["test_runs"],
+            metrics["lint_runs"], metrics["full_suite_runs"], iteration_id
+        ))
+    else:
+        db.execute("""
+            INSERT INTO sessions (
+                iteration_id, bead_id, bead_title, assistant_turns, narration_only_turns,
+                parallel_turns, tool_calls, committed, outcome, cost_estimate,
+                test_runs, lint_runs, full_suite_runs
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            iteration_id, metrics["bead_id"], metrics["bead_title"],
+            metrics["assistant_turns"], metrics["narration_only_turns"],
+            metrics["parallel_turns"], metrics["tool_calls"],
+            1 if metrics["committed"] else 0, metrics["outcome"],
+            round(metrics["cost_estimate"], 2), metrics["test_runs"],
+            metrics["lint_runs"], metrics["full_suite_runs"]
+        ))
+    db.commit()
+
+    # Print summary
+    turns = metrics["assistant_turns"]
+    if turns > 0:
+        narr_pct = metrics["narration_only_turns"] * 100 // turns
+        par_pct = metrics["parallel_turns"] * 100 // turns
+    else:
+        narr_pct = par_pct = 0
+
+    status = "committed" if metrics["committed"] else metrics["outcome"]
+    bead = metrics["bead_id"] or "???"
+    grade = "GOOD" if narr_pct < 20 and par_pct > 10 else "NEEDS WORK"
+
+    print(f"  #{iteration_id} {bead:6s} {turns:3d}t {narr_pct:2d}%narr {par_pct:2d}%par {status:10s} [{grade}]")
+    return 0
+
+
+def cmd_backfill(args):
+    """Bulk-parse iteration JSONL files into the database."""
+    from_id = args.from_id
+    to_id = args.to_id
+
+    # Find all iteration files
+    pattern = re.compile(r"claude-iteration-(\d+)\.jsonl$")
+    files = []
+    for f in PROJECT_ROOT.iterdir():
+        m = pattern.match(f.name)
+        if m:
+            iter_id = int(m.group(1))
+            if from_id is not None and iter_id < from_id:
+                continue
+            if to_id is not None and iter_id > to_id:
+                continue
+            files.append((iter_id, str(f)))
+
+    files.sort(key=lambda x: x[0])
+    print(f"Backfilling {len(files)} iteration files...")
+
+    success = 0
+    for iter_id, filepath in files:
+        try:
+            # Create a fake args object for cmd_log
+            log_args = argparse.Namespace(file=filepath)
+            cmd_log(log_args)
+            success += 1
+        except Exception as e:
+            print(f"  Error on iteration {iter_id}: {e}", file=sys.stderr)
+
+    print(f"\nBackfilled {success}/{len(files)} sessions.")
+    return 0
+
+
+def cmd_status(args):
+    """Show dashboard with recent sessions and trends."""
+    last_n = args.last or 10
+    db = get_db()
+
+    total = db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+    if total == 0:
+        print("No sessions logged. Run: tools/self-improvement backfill")
+        return 0
+
+    # Recent sessions
+    rows = db.execute("""
+        SELECT iteration_id, bead_id, bead_title, assistant_turns,
+               narration_only_turns, parallel_turns, committed, outcome
+        FROM sessions ORDER BY iteration_id DESC LIMIT ?
+    """, (last_n,)).fetchall()
+
+    # Aggregate stats for the window
+    agg = db.execute("""
+        SELECT COUNT(*) as total,
+               SUM(CASE WHEN committed = 1 THEN 1 ELSE 0 END) as completed,
+               AVG(assistant_turns) as avg_turns,
+               AVG(CASE WHEN assistant_turns > 0
+                   THEN narration_only_turns * 100.0 / assistant_turns ELSE 0 END) as avg_narr,
+               AVG(CASE WHEN assistant_turns > 0
+                   THEN parallel_turns * 100.0 / assistant_turns ELSE 0 END) as avg_par,
+               SUM(cost_estimate) as total_cost
+        FROM (SELECT * FROM sessions ORDER BY iteration_id DESC LIMIT ?)
+    """, (last_n,)).fetchone()
+
+    # Previous window for trend
+    prev = db.execute("""
+        SELECT AVG(CASE WHEN assistant_turns > 0
+                   THEN narration_only_turns * 100.0 / assistant_turns ELSE 0 END) as avg_narr,
+               AVG(CASE WHEN assistant_turns > 0
+                   THEN parallel_turns * 100.0 / assistant_turns ELSE 0 END) as avg_par,
+               SUM(CASE WHEN committed = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as completion_rate
+        FROM (SELECT * FROM sessions ORDER BY iteration_id DESC LIMIT ? OFFSET ?)
+    """, (last_n, last_n)).fetchone()
+
+    comp_rate = (agg["completed"] / agg["total"] * 100) if agg["total"] > 0 else 0
+    avg_narr = agg["avg_narr"] or 0
+    avg_par = agg["avg_par"] or 0
+    total_cost = agg["total_cost"] or 0
+
+    # Trend arrows
+    def trend(current, previous):
+        if previous is None:
+            return " "
+        diff = current - previous
+        if abs(diff) < 1:
+            return "="
+        return "^" if diff > 0 else "v"
+
+    prev_narr = prev["avg_narr"] if prev else None
+    prev_par = prev["avg_par"] if prev else None
+    prev_comp = prev["completion_rate"] if prev else None
+
+    # Targets
+    comp_ok = "OK" if comp_rate >= 85 else "MISS"
+    narr_ok = "OK" if avg_narr < 20 else "MISS"
+    par_ok = "OK" if avg_par > 10 else "MISS"
+
+    print(f"=== Self-Improvement Dashboard (last {min(last_n, total)} of {total} sessions) ===")
+    print(f"Completion: {agg['completed']}/{agg['total']} ({comp_rate:.0f}%) {trend(comp_rate, prev_comp)}  [{comp_ok}  target: >=85%]")
+    print(f"Avg turns:  {agg['avg_turns']:.0f}")
+    print(f"Narration:  {avg_narr:.0f}% {trend(-avg_narr, -prev_narr if prev_narr else None)}  [{narr_ok}  target: <20%]")
+    print(f"Parallel:   {avg_par:.0f}% {trend(avg_par, prev_par)}  [{par_ok}  target: >10%]")
+    print(f"Est. cost:  ${total_cost:.2f}")
+    print()
+
+    # Session list
+    print(f"{'Iter':>5}  {'Bead':6}  {'Turns':>5}  {'Narr%':>5}  {'Par%':>4}  {'Status':10}")
+    print("-" * 52)
+    for r in rows:
+        turns = r["assistant_turns"]
+        narr = (r["narration_only_turns"] * 100 // turns) if turns > 0 else 0
+        par = (r["parallel_turns"] * 100 // turns) if turns > 0 else 0
+        bead = r["bead_id"] or "???"
+        status = "committed" if r["committed"] else r["outcome"]
+        print(f"  #{r['iteration_id']:<4d} {bead:6s} {turns:5d}  {narr:4d}%  {par:3d}%  {status}")
+
+    # Open improvements count
+    imp = db.execute("""
+        SELECT severity, COUNT(*) as cnt FROM improvements
+        WHERE status = 'open' GROUP BY severity
+    """).fetchall()
+    if imp:
+        parts = [f"{r['cnt']} {r['severity']}" for r in imp]
+        print(f"\nOpen improvements: {', '.join(parts)}")
+
+    return 0
+
+
+def cmd_analyze(args):
+    """Deep analysis of recent sessions with trend comparison."""
+    last_n = args.last or 10
+    db = get_db()
+
+    rows = db.execute("""
+        SELECT * FROM sessions ORDER BY iteration_id DESC LIMIT ?
+    """, (last_n,)).fetchall()
+
+    if not rows:
+        print("No sessions to analyze. Run: tools/self-improvement backfill")
+        return 0
+
+    rows = list(reversed(rows))  # chronological order
+    iter_start = rows[0]["iteration_id"]
+    iter_end = rows[-1]["iteration_id"]
+    total = len(rows)
+    completed = sum(1 for r in rows if r["committed"])
+    total_turns = sum(r["assistant_turns"] for r in rows)
+    waste_turns = sum(r["assistant_turns"] for r in rows if not r["committed"])
+
+    narr_pcts = [(r["narration_only_turns"] * 100 / r["assistant_turns"]) if r["assistant_turns"] > 0 else 0 for r in rows]
+    par_pcts = [(r["parallel_turns"] * 100 / r["assistant_turns"]) if r["assistant_turns"] > 0 else 0 for r in rows]
+
+    comp_rate = completed / total * 100 if total > 0 else 0
+    avg_narr = sum(narr_pcts) / len(narr_pcts) if narr_pcts else 0
+    avg_par = sum(par_pcts) / len(par_pcts) if par_pcts else 0
+    total_cost = sum(r["cost_estimate"] or 0 for r in rows)
+
+    # Store analysis run
+    summary_parts = []
+    recommendations = []
+
+    comp_ok = comp_rate >= 85
+    narr_ok = avg_narr < 20
+    par_ok = avg_par > 10
+
+    if not comp_ok:
+        summary_parts.append(f"Completion rate {comp_rate:.0f}% below 85% target")
+        recommendations.append({"severity": "high", "text": "Investigate incomplete sessions. Check task sizing and turn budget."})
+    if not narr_ok:
+        summary_parts.append(f"Narration-only rate {avg_narr:.0f}% above 20% target")
+        recommendations.append({"severity": "high", "text": "Narration-only turns remain high. PROMPT.md Rule B may need stronger enforcement."})
+    if not par_ok:
+        summary_parts.append(f"Parallel call rate {avg_par:.0f}% below 10% target")
+        recommendations.append({"severity": "high", "text": "Parallel tool calls still low. PROMPT.md Rule A may need stronger enforcement."})
+
+    if comp_ok and narr_ok and par_ok:
+        summary_parts.append("All targets met!")
+
+    summary = "; ".join(summary_parts) if summary_parts else "All targets met."
+
+    db.execute("""
+        INSERT INTO analysis_runs (
+            iteration_range_start, iteration_range_end, sessions_analyzed,
+            completion_rate, avg_narration_pct, avg_parallel_pct,
+            total_turns, total_waste_turns, summary, recommendations_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        iter_start, iter_end, total,
+        round(comp_rate, 1), round(avg_narr, 1), round(avg_par, 1),
+        total_turns, waste_turns, summary, json.dumps(recommendations)
+    ))
+    db.commit()
+
+    # Print analysis
+    print(f"=== Analysis: iterations {iter_start}-{iter_end} ({total} sessions) ===")
+    print(f"Completion: {completed}/{total} ({comp_rate:.0f}%)  [target: >=85% {'OK' if comp_ok else 'MISS'}]")
+    print(f"Narration:  {avg_narr:.0f}% avg  [target: <20% {'OK' if narr_ok else 'MISS'}]")
+    print(f"Parallel:   {avg_par:.0f}% avg  [target: >10% {'OK' if par_ok else 'MISS'}]")
+    print(f"Turns:      {total_turns} total, {waste_turns} wasted ({waste_turns * 100 // total_turns if total_turns else 0}%)")
+    print(f"Cost:       ${total_cost:.2f} ({total_cost / completed:.2f}/commit)" if completed > 0 else f"Cost: ${total_cost:.2f}")
+
+    # Per-session breakdown
+    print()
+    cutoffs = [r for r in rows if not r["committed"]]
+    if cutoffs:
+        print(f"Incomplete sessions ({len(cutoffs)}):")
+        for r in cutoffs:
+            print(f"  #{r['iteration_id']} {r['bead_id'] or '???':6s} {r['assistant_turns']}t outcome={r['outcome']}")
+
+    # Recommendations
+    if recommendations:
+        print()
+        print("Issues:")
+        for rec in recommendations:
+            print(f"  [{rec['severity'].upper():6s}] {rec['text']}")
+
+    # Trend vs previous analysis
+    prev_run = db.execute("""
+        SELECT * FROM analysis_runs ORDER BY id DESC LIMIT 1 OFFSET 1
+    """).fetchone()
+    if prev_run:
+        print()
+        print(f"vs previous analysis (iters {prev_run['iteration_range_start']}-{prev_run['iteration_range_end']}):")
+        def delta(label, current, prev, better_dir):
+            diff = current - prev
+            arrow = "^" if diff > 0 else "v" if diff < 0 else "="
+            good = (diff > 0) == (better_dir == "up") or (diff < 0) == (better_dir == "down")
+            marker = "better" if good else "worse" if abs(diff) > 1 else "same"
+            print(f"  {label}: {prev:.0f}% -> {current:.0f}% {arrow} ({marker})")
+        delta("Completion", comp_rate, prev_run["completion_rate"], "up")
+        delta("Narration", avg_narr, prev_run["avg_narration_pct"], "down")
+        delta("Parallel", avg_par, prev_run["avg_parallel_pct"], "up")
+
+    return 0
+
+
+def cmd_targets(args):
+    """Show current efficiency targets and how recent sessions compare."""
+    db = get_db()
+    print("=== Efficiency Targets ===")
+    print()
+    targets = [
+        ("Completion rate", ">=85%", "Percentage of sessions that commit code"),
+        ("Narration-only turns", "<20%", "Assistant turns with no tool calls"),
+        ("Parallel tool calls", ">10%", "Turns with 2+ tool calls batched"),
+        ("Turns per session", "<80", "Hard budget from PROMPT.md"),
+        ("Lint/analyze runs", "1 each", "Exactly once at session end"),
+    ]
+    for name, target, desc in targets:
+        print(f"  {name:25s} {target:8s}  {desc}")
+
+    # How recent sessions compare
+    last5 = db.execute("""
+        SELECT iteration_id, assistant_turns,
+               CASE WHEN assistant_turns > 0
+                    THEN narration_only_turns * 100.0 / assistant_turns ELSE 0 END as narr_pct,
+               CASE WHEN assistant_turns > 0
+                    THEN parallel_turns * 100.0 / assistant_turns ELSE 0 END as par_pct,
+               committed, lint_runs
+        FROM sessions ORDER BY iteration_id DESC LIMIT 5
+    """).fetchall()
+
+    if last5:
+        print()
+        print("Last 5 sessions vs targets:")
+        for r in last5:
+            turns_ok = "OK" if r["assistant_turns"] <= 80 else "OVER"
+            narr_ok = "OK" if r["narr_pct"] < 20 else "HIGH"
+            par_ok = "OK" if r["par_pct"] > 10 else "LOW"
+            comp_ok = "OK" if r["committed"] else "MISS"
+            lint_ok = "OK" if r["lint_runs"] <= 2 else "MANY"
+            print(f"  #{r['iteration_id']}: turns={r['assistant_turns']}({turns_ok}) narr={r['narr_pct']:.0f}%({narr_ok}) par={r['par_pct']:.0f}%({par_ok}) commit={comp_ok} lint={r['lint_runs']}({lint_ok})")
+
+    return 0
+
+
+def cmd_improvement_add(args):
+    """Add a new improvement record."""
+    db = get_db()
+
+    # Auto-generate ref_id
+    last = db.execute("SELECT ref_id FROM improvements ORDER BY id DESC LIMIT 1").fetchone()
+    if last and last["ref_id"] and last["ref_id"].startswith("R"):
+        try:
+            next_num = int(last["ref_id"][1:]) + 1
+        except ValueError:
+            next_num = 1
+    else:
+        next_num = 1
+    ref_id = f"R{next_num}"
+
+    db.execute("""
+        INSERT INTO improvements (ref_id, severity, title, description, recommendation, tags)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (ref_id, args.severity, args.title, args.desc, args.rec, args.tags))
+    db.commit()
+
+    print(f"Created improvement {ref_id}: [{args.severity.upper()}] {args.title}")
+    return 0
+
+
+def cmd_improvement_fix(args):
+    """Mark an improvement as fixed."""
+    db = get_db()
+    row = db.execute("SELECT * FROM improvements WHERE ref_id = ? OR id = ?", (args.id, args.id)).fetchone()
+    if not row:
+        print(f"Error: Improvement '{args.id}' not found", file=sys.stderr)
+        return 1
+
+    db.execute("""
+        UPDATE improvements SET status = 'fixed', fixed_at = datetime('now'), measured_impact = ?
+        WHERE id = ?
+    """, (args.impact, row["id"]))
+    db.commit()
+
+    print(f"Marked {row['ref_id']} as fixed: {row['title']}")
+    if args.impact:
+        print(f"  Impact: {args.impact}")
+    return 0
+
+
+def cmd_improvement_list(args):
+    """List improvement records."""
+    db = get_db()
+    query = "SELECT * FROM improvements"
+    params = []
+    if args.status:
+        query += " WHERE status = ?"
+        params.append(args.status)
+    query += " ORDER BY CASE severity WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, id"
+    rows = db.execute(query, params).fetchall()
+
+    if not rows:
+        print("No improvements found.")
+        return 0
+
+    print(f"{'ID':4s} {'Sev':6s} {'Status':10s} {'Title'}")
+    print("-" * 60)
+    for r in rows:
+        print(f"{r['ref_id'] or '?':4s} {r['severity']:6s} {r['status']:10s} {r['title']}")
+        if args.verbose and r["description"]:
+            for line in r["description"].split("\n"):
+                print(f"     {line}")
+    return 0
+
+
+def cmd_improvement_search(args):
+    """Search improvements by keyword."""
+    db = get_db()
+    query_str = f"%{args.query}%"
+    rows = db.execute("""
+        SELECT * FROM improvements
+        WHERE title LIKE ? OR description LIKE ? OR recommendation LIKE ? OR tags LIKE ?
+        ORDER BY CASE severity WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END
+    """, (query_str, query_str, query_str, query_str)).fetchall()
+
+    if not rows:
+        print(f"No improvements matching '{args.query}'")
+        return 0
+
+    print(f"Found {len(rows)} improvement(s) matching '{args.query}':")
+    for r in rows:
+        print(f"  {r['ref_id'] or '?':4s} [{r['severity']:6s}] [{r['status']:10s}] {r['title']}")
+        if r["recommendation"]:
+            print(f"       Rec: {r['recommendation'][:100]}")
+    return 0
+
+
+def cmd_seed(args):
+    """Seed the improvements table with historical R1-R14 records."""
+    db = get_db()
+
+    existing = db.execute("SELECT COUNT(*) FROM improvements").fetchone()[0]
+    if existing > 0:
+        print(f"Already have {existing} improvements. Skipping seed.")
+        return 0
+
+    records = [
+        ("R1", "medium", "monitoring", "Session turn budget with wrap-up phase",
+         "Sessions cut off mid-work, losing all progress (53% waste in batch 305-337)",
+         "Add hard budget of 80 turns with wrap-up at turn 60. Implemented in PROMPT.md.",
+         "Completion rate improved from 36% to 87.5%", "session-management,turn-budget"),
+        ("R2", "low", "fixed", "Zombie bead cleanup in loop script",
+         "14 beads stuck IN_PROGRESS after failed sessions",
+         "Loop script resets zombie beads to open at each iteration start.",
+         "Reduced from 14 zombies to 1", "session-management,beads"),
+        ("R3", "low", "fixed", "Prioritize small beads in loop",
+         "Loop picked up oversized P1 features that couldn't finish in one session",
+         "FORM-01 decomposed into 4 sub-beads. Task sizing now standard practice.",
+         "FORM-01: 4/4 sub-beads completed vs 0/1 monolithic attempt", "task-sizing"),
+        ("R4", "medium", "fixed", "Skip recently-failed beads",
+         "Sessions re-attempted failed beads without context, causing multi-session thrashing (bc9o: 501 turns)",
+         "Failed-attempt markers added to PROMPT.md. 2+ failures triggers decomposition.",
+         "Zero re-attempt thrashing in batch 338-345", "session-management,beads"),
+        ("R5", "high", "open", "Zero parallel tool calls",
+         "0% of turns batch multiple tool calls. Persists across 41+ sessions despite CLAUDE.md Rule #22.",
+         "Added PROMPT.md Rule A with mandatory patterns and explicit targets. Needs measurement.",
+         None, "efficiency,parallel-calls"),
+        ("R6", "high", "open", "High narration-only turn rate (39%)",
+         "39% of turns are text-only with no tool call. Violates CLAUDE.md Rule #21.",
+         "Added PROMPT.md Rule B. Target: <20%. Needs measurement.",
+         None, "efficiency,narration"),
+        ("R7", "medium", "monitoring", "Grep tests before renaming strings",
+         "Renaming user-facing strings without checking tests caused 501-turn cascading failure (bc9o)",
+         "CLAUDE.md Rule #11 exists. No violations in batch 338-345.",
+         None, "code-quality,testing"),
+        ("R8", "medium", "monitoring", "Progress notes on bead for continuations",
+         "Continuation sessions re-orient from scratch, re-reading same files",
+         "No multi-session beads in batch 338-345 to test this.",
+         None, "session-management,continuations"),
+        ("R9", "low", "monitoring", "Plan edits in one pass before testing",
+         "Files read 3-7x in edit cycles within a single session",
+         "CLAUDE.md Rule #9 exists. Fewer within-session re-reads observed.",
+         None, "efficiency,file-reads"),
+        ("R10", "low", "monitoring", "Full test suite only in wrap-up phase",
+         "Full suite (3000+ tests, ~3 min) run 25x across 33 sessions, many in abandoned sessions",
+         "PROMPT.md verify step updated. Session 344 still ran multiple lint cycles.",
+         None, "efficiency,testing"),
+        ("R11", "medium", "fixed", "Tag beads with size estimates (S/M/L)",
+         "No task sizing caused 64% failure rate when loop picked oversized features",
+         "FORM-01 decomposition proves the concept. Standard practice now.",
+         "Completion rate 36% -> 87.5%", "task-sizing"),
+        ("R12", "low", "monitoring", "auto-ok / human-only bead labels",
+         "No distinction between beads suitable for headless vs interactive sessions",
+         "Not directly implemented. Task decomposition addresses this indirectly.",
+         None, "task-sizing,beads"),
+        ("R13", "medium", "open", "Triage sessions waste context",
+         "Session 345 spent 64 turns triaging beads without coding, then got cut off",
+         "Added PROMPT.md Rule C: exit immediately after closing bead. Needs measurement.",
+         None, "session-management,efficiency"),
+        ("R14", "low", "open", "Auto-assign unblocked dependent bead as next task",
+         "Sequential chain handoffs waste 3-5 turns per transition for bd ready triage",
+         "Not yet implemented. Low priority — small savings.",
+         None, "session-management,optimization"),
+    ]
+
+    for ref_id, severity, status, title, desc, rec, impact, tags in records:
+        db.execute("""
+            INSERT INTO improvements (ref_id, severity, status, title, description, recommendation, measured_impact, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (ref_id, severity, status, title, desc, rec, impact, tags))
+
+    db.commit()
+    print(f"Seeded {len(records)} improvement records (R1-R14).")
+    return 0
+
+
+# ─── Main ─────────────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="self-improvement",
+        description="Track autonomous loop session metrics and improvement efforts."
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # log
+    p_log = sub.add_parser("log", help="Parse a JSONL iteration file and log session metrics")
+    p_log.add_argument("file", help="Path to claude-iteration-N.jsonl file")
+
+    # backfill
+    p_bf = sub.add_parser("backfill", help="Bulk-parse iteration files into the database")
+    p_bf.add_argument("--from", dest="from_id", type=int, help="Start iteration ID")
+    p_bf.add_argument("--to", dest="to_id", type=int, help="End iteration ID")
+
+    # status
+    p_st = sub.add_parser("status", help="Show dashboard with recent sessions and trends")
+    p_st.add_argument("--last", type=int, default=10, help="Number of recent sessions to show")
+
+    # analyze
+    p_an = sub.add_parser("analyze", help="Deep analysis of recent sessions")
+    p_an.add_argument("--last", type=int, default=10, help="Number of sessions to analyze")
+
+    # targets
+    sub.add_parser("targets", help="Show efficiency targets and recent performance")
+
+    # improvement subcommands
+    p_imp = sub.add_parser("improvement", help="Manage improvement records")
+    imp_sub = p_imp.add_subparsers(dest="imp_command")
+
+    p_add = imp_sub.add_parser("add", help="Add a new improvement")
+    p_add.add_argument("--title", required=True, help="Short title")
+    p_add.add_argument("--severity", required=True, choices=["high", "medium", "low"])
+    p_add.add_argument("--desc", help="Detailed description")
+    p_add.add_argument("--rec", help="Recommendation")
+    p_add.add_argument("--tags", help="Comma-separated tags")
+
+    p_fix = imp_sub.add_parser("fix", help="Mark an improvement as fixed")
+    p_fix.add_argument("id", help="Improvement ref_id (e.g., R5) or numeric id")
+    p_fix.add_argument("--impact", help="Measured impact description")
+
+    p_list = imp_sub.add_parser("list", help="List improvements")
+    p_list.add_argument("--status", choices=["open", "fixed", "wontfix", "monitoring"])
+    p_list.add_argument("--verbose", "-v", action="store_true")
+
+    p_search = imp_sub.add_parser("search", help="Search improvements by keyword")
+    p_search.add_argument("query", help="Search term")
+
+    # seed
+    sub.add_parser("seed", help="Seed improvements table with historical R1-R14 records")
+
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        return 1
+
+    if args.command == "log":
+        return cmd_log(args)
+    elif args.command == "backfill":
+        return cmd_backfill(args)
+    elif args.command == "status":
+        return cmd_status(args)
+    elif args.command == "analyze":
+        return cmd_analyze(args)
+    elif args.command == "targets":
+        return cmd_targets(args)
+    elif args.command == "seed":
+        return cmd_seed(args)
+    elif args.command == "improvement":
+        if not args.imp_command:
+            p_imp.print_help()
+            return 1
+        if args.imp_command == "add":
+            return cmd_improvement_add(args)
+        elif args.imp_command == "fix":
+            return cmd_improvement_fix(args)
+        elif args.imp_command == "list":
+            return cmd_improvement_list(args)
+        elif args.imp_command == "search":
+            return cmd_improvement_search(args)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main() or 0)
