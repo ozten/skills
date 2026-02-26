@@ -20,7 +20,15 @@ If ambition exceeds clarity, compress it.
 
 ## Process
 
-For any work product, answer:
+Before auditing, state what kind of artifact this is and what "functional" means for it:
+- Code: functional = executes
+- Prompt: functional = shapes LLM behavior (every word is execution)
+- Documentation: functional = changes reader understanding
+- Architecture: functional = enables or constrains implementation
+
+If you cannot articulate what "bloat" means for this artifact type, stop and figure that out first. Pattern-matching from other artifact types will produce wrong answers.
+
+Then, for the work product, answer:
 
 1. **What is this in one sentence?**
 2. **What is essential to that sentence?**
