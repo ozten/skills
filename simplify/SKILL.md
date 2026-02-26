@@ -34,6 +34,8 @@ Then, for the work product, answer:
 2. **What is essential to that sentence?**
 3. **What is not essential?**
 
+Subtraction exercise: If we cut 30-50%, what goes first? What can be merged? Hardcoded? Deferred?
+
 ## Output Format
 
 ### Verdict
@@ -42,7 +44,7 @@ Then, for the work product, answer:
 
 ### Decisions
 
-Each bloat signal becomes a decision. Only list what exists.
+Each bloat signal becomes a decision. Ordered by leverage. Only list what exists.
 
 ```
 [ID]
