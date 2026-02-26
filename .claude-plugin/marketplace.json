@@ -34,5 +34,9 @@
       "./webdev-token-input",
       "./webdev-filter-query-builder"
     ]
+  }, {
+    "name": "simplify",
+    "source": "./simplify",
+    "description": "Radical Simplicity & Candor Audit for ideas, products, and systems"
   }]
 }

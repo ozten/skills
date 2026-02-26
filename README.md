@@ -45,6 +45,16 @@ Coming soon.
 Add new categories here as the collection grows.
 -->
 
+## Product & Strategy
+
+Tools for auditing and simplifying ideas, products, and systems.
+
+| Skill | Description | Use When |
+|-------|-------------|----------|
+| [simplify](simplify/) | Radical Simplicity & Candor Audit | Asking for advice on radically simplifying an idea, product, architecture, or system |
+
+The simplify skill produces structured audit reports with phased YES/NO/DEFER decision lists. It exposes complexity and prepares batched decisions—it does not execute changes.
+
 ## Web Development & UI Components
 
 Build accessible, production-ready autocomplete, token inputs, and filter query builders using proven patterns from Downshift, Headless UI, and tools like Datadog and Linear.
@@ -146,6 +156,15 @@ Once installed, just ask Claude Code to help with tasks:
 
 "Build a filter query builder with operators and date ranges"
 → Uses webdev-filter-query-builder skill
+```
+
+**Product & strategy tasks:**
+```
+"Help me radically simplify this product idea"
+→ Uses simplify skill
+
+"Give me advice on simplifying this architecture"
+→ Uses simplify skill
 ```
 
 Or reference skills directly when starting a task:
