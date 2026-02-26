@@ -62,3 +62,7 @@ Instruct user to reply with Decision IDs and YES / NO / DEFER.
 - Never propose open-ended improvements
 - Never execute changes without approval
 - Each decision must be atomic and answerable in seconds
+
+---
+
+*Original prompt by [@kloss_xyz](https://x.com/kloss_xyz)*
