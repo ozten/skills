@@ -25,6 +25,10 @@
     "source": "./nano-banana-image-gen",
     "description": "Generate images using Google Gemini API"
   }, {
+    "name": "find-bugs",
+    "source": "./find-bugs",
+    "description": "Adversarial three-agent bug review — search, adversary, and judge debate to find high-confidence bugs"
+  }, {
     "name": "five-whys",
     "source": "./five-whys",
     "description": "Root cause analysis technique — iteratively ask Why? to find systemic causes and actionable changes"

@@ -77,6 +77,52 @@ flowchart TD
     style D fill:#4a9eff,color:#fff
 ```
 
+## Code Quality & Bug Detection
+
+Adversarial multi-agent systems for finding bugs with high confidence.
+
+| Skill | Description | Use When |
+|-------|-------------|----------|
+| [find-bugs](find-bugs/) | Three-agent adversarial bug review (search → adversary → judge) | "find bugs", "review code for bugs", "adversarial code review" |
+
+**Find Bugs Pipeline:**
+
+```mermaid
+flowchart TD
+    A[Target: src/] --> B[Search]
+    B -->|bugs.json| C[Adversary]
+    C -->|contested.json| D[Judge]
+    D --> E[verdict.json]
+
+    B -.->|"+1/+5/+10 scoring"| B
+    C -.->|"+score/-2x penalty"| C
+    D -.->|"ground truth bluff"| D
+
+    style B fill:#e74c3c,color:#fff
+    style C fill:#f39c12,color:#fff
+    style D fill:#27ae60,color:#fff
+```
+
+The pipeline exploits asymmetric incentives to produce three distinct epistemic postures:
+- **Search**: Overclaiming (rewards thoroughness)
+- **Adversary**: Aggressive skepticism (rewards precise disproval)
+- **Judge**: Calibrated judgment (rewards accuracy)
+
+Their intersection yields high-fidelity results with reduced false positives.
+
+**Usage:**
+```bash
+/find-bugs src/
+```
+
+**Output:**
+```
+.find-bugs/
+├── bugs.json          # All potential bugs found
+├── contested.json     # Adversary's challenges
+└── verdict.json       # Final calibrated verdicts
+```
+
 ## Self-Improvement & Analysis
 
 Tools for root cause analysis, retrospectives, and optimizing autonomous session performance.
@@ -271,6 +317,12 @@ Once installed, just ask Claude Code to help with tasks:
 
 "Help me figure out the root cause of this bug recurring"
 → Uses five-whys skill
+
+"Run /find-bugs on src/"
+→ Uses find-bugs skill
+
+"/find-bugs src/auth/"
+→ Uses find-bugs skill
 
 "Check my loop metrics"
 → Uses self-improvement skill
