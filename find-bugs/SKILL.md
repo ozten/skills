@@ -5,7 +5,7 @@ description: "Adversarial three-agent bug review pipeline. Runs search → adver
 
 # Find Bugs — Adversarial Bug Detection
 
-Run a three-agent adversarial debate to find bugs with high confidence. This pipeline exploits asymmetric incentives to produce three distinct perspectives whose intersection yields high-fidelity results.
+Run a three-agent adversarial debate to find bugs with high confidence. Each agent runs as an **isolated subagent** with its own context — they communicate only via JSON files.
 
 ## Architecture
 
@@ -42,7 +42,7 @@ If no target is specified, default to the current directory.
 
 ## Process
 
-Execute these phases in sequence:
+Execute these phases in sequence. **Each phase runs as an isolated Task subagent.**
 
 ### Phase 0: Initialize
 
@@ -53,42 +53,41 @@ rm -rf .find-bugs
 mkdir -p .find-bugs
 ```
 
-### Phase 1: Search
+### Phase 1: Search Agent (Task subagent)
 
-Act as the **Search Agent**. Your goal: identify the **superset** of all possible bugs.
+Spawn a Task subagent with `subagent_type: "general-purpose"` and the following prompt:
 
-**Your Incentive:**
-- **+1 point** for low-impact bugs (style issues, minor inefficiencies)
-- **+5 points** for moderate-impact bugs (logic errors, edge cases)
-- **+10 points** for critical bugs (security vulnerabilities, crashes)
+```
+You are the SEARCH AGENT in a bug-hunting competition. Your goal: identify the SUPERSET of all possible bugs in: <TARGET>
 
-**Your current high score to beat is 85.** Maximize your score. Cast a wide net.
+SCORING:
+- +1 point for low-impact bugs (style issues, minor inefficiencies)
+- +5 points for moderate-impact bugs (logic errors, edge cases)
+- +10 points for critical bugs (security vulnerabilities, crashes)
 
-**What to Look For:**
+Your high score to beat is 85. MAXIMIZE your score. Cast a wide net.
 
-| Severity | Score | Examples |
-|----------|-------|----------|
-| Critical | +10 | Security vulnerabilities, memory safety, data corruption, crashes, race conditions |
-| Moderate | +5 | Logic errors, edge cases, missing validation, resource leaks, incorrect error handling |
-| Low | +1 | Style issues, inefficient algorithms, dead code, deprecated API usage |
+WHAT TO LOOK FOR:
+Critical (+10): Security vulnerabilities, memory safety, data corruption, crashes, race conditions
+Moderate (+5): Logic errors, edge cases, missing validation, resource leaks, error handling
+Low (+1): Style issues, inefficient algorithms, dead code, deprecated APIs
 
-**Process:**
-1. Analyze all source files in the target
-2. Run automated checks (tests, linters, type checkers: `cargo check`, `tsc --noEmit`, `eslint`, `mypy`, etc.)
+PROCESS:
+1. Read all source files in the target
+2. Run automated checks that apply: npm test, npm audit, eslint, tsc --noEmit, cargo check, mypy, etc.
 3. Manual inspection for patterns tools miss
-4. Output to `.find-bugs/bugs.json`
+4. Write findings to .find-bugs/bugs.json
 
-**Output Format:**
-```json
+OUTPUT FORMAT (.find-bugs/bugs.json):
 {
   "target": "<what was analyzed>",
   "agent": "search",
   "timestamp": "<ISO 8601>",
-  "total_score": 104,
+  "total_score": <sum>,
   "bugs": [
     {
       "id": "BUG-001",
-      "severity": "critical",
+      "severity": "critical|moderate|low",
       "score": 10,
       "file": "path/to/file.ext",
       "line_range": [45, 52],
@@ -99,24 +98,44 @@ Act as the **Search Agent**. Your goal: identify the **superset** of all possibl
     }
   ]
 }
+
+Be THOROUGH. An adversary will challenge every finding. Document your reasoning with file paths and line numbers.
 ```
 
-### Phase 2: Adversary
+**Allowed tools for Search:** `Read`, `Bash`, `Glob`, `Grep`, `Write`
 
-Act as the **Adversary Agent**. Your goal: aggressively challenge Search's claims to filter false positives.
+Wait for the Search agent to complete and write `.find-bugs/bugs.json`.
 
-**Your Incentive:**
-- You **earn** the bug's score for each successful disproval
-- You **lose 2×** the score if you wrongly disprove a real bug
+### Phase 1.5: Strip Scores
 
-A wrong call on a critical bug costs **-20 points**. Choose battles wisely, but challenge everything.
+Before running the Adversary, strip scores and confidence to prevent cherry-picking:
 
-**Important:** Strip scores and confidence before reviewing:
 ```bash
-jq '.bugs | map(del(.score, .confidence))' .find-bugs/bugs.json > .find-bugs/bugs_stripped.json
+jq '{target: .target, bugs: [.bugs[] | {id, severity, file, line_range, title, description, reasoning}]}' .find-bugs/bugs.json > .find-bugs/bugs_stripped.json
 ```
 
-**Reasons to Disprove:**
+### Phase 2: Adversary Agent (Task subagent)
+
+Spawn a Task subagent with `subagent_type: "general-purpose"` and the following prompt:
+
+```
+You are the ADVERSARY AGENT in a bug-hunting competition. Your goal: aggressively challenge bug claims to filter false positives.
+
+SCORING:
+- You EARN the bug's score for each successful disproval
+- You LOSE 2× the score if you wrongly disprove a real bug
+
+A wrong call on a critical bug costs -20 points. Challenge everything, but be rigorous.
+
+Read the bug findings from: .find-bugs/bugs_stripped.json
+
+For EACH bug, investigate independently:
+1. Read the cited file and line range
+2. Trace code paths - is this reachable?
+3. Check for upstream guards, type system protections, test coverage
+4. Look for evidence the "bug" is intentional behavior
+
+REASONS TO DISPROVE:
 - False positive — code is actually correct
 - Misunderstood intent — "bug" is intentional behavior
 - Handled elsewhere — guarded upstream or downstream
@@ -124,66 +143,67 @@ jq '.bugs | map(del(.score, .confidence))' .find-bugs/bugs.json > .find-bugs/bug
 - Type system protection — makes path unreachable
 - Dead code path — never executed
 
-**If you cannot disprove, confirm:**
+IF YOU CANNOT DISPROVE, you must CONFIRM:
 - Code path is reachable
 - No upstream guards exist
 - Impact is real
-- Severity is accurate
 
-**Output Format:**
-```json
+OUTPUT FORMAT (.find-bugs/contested.json):
 {
   "agent": "adversary",
   "timestamp": "<ISO 8601>",
-  "claimed_score": 47,
   "contestations": [
     {
       "bug_id": "BUG-001",
-      "verdict": "confirmed",
-      "reasoning": "The unwrap is reachable via /api/login with malformed token. No upstream guard."
-    },
-    {
-      "bug_id": "BUG-003",
-      "verdict": "disproved",
-      "reasoning": "Unreachable. Caller validates at request.rs:23, type system guarantees...",
-      "evidence": ["src/request.rs:23-30", "src/types.rs:12"]
+      "verdict": "confirmed|disproved",
+      "reasoning": "Detailed explanation with evidence",
+      "evidence": ["file:line-range", ...]
     }
   ]
 }
+
+You must contest EVERY bug in the input. Provide CONCRETE evidence — "this seems fine" is not valid.
 ```
 
-Write to `.find-bugs/contested.json`.
+**Allowed tools for Adversary:** `Read`, `Glob`, `Grep`, `Write` (NO Bash — reason from source only)
 
-### Phase 3: Judge
+Wait for the Adversary agent to complete and write `.find-bugs/contested.json`.
 
-Act as the **Judge Agent**. Your goal: produce calibrated, final judgment on each bug.
+### Phase 3: Judge Agent (Task subagent)
 
-**Your Incentive:**
-**I have the actual verified ground truth for each bug.** After you submit:
-- **+1** for each correct judgment
-- **-1** for each incorrect judgment
+Spawn a Task subagent with `subagent_type: "general-purpose"` and the following prompt:
 
-Your reputation depends on calibration. **Do not hedge.**
+```
+You are the JUDGE AGENT. Your goal: produce calibrated final judgments on each bug.
 
-**Process:**
-1. Read `.find-bugs/bugs.json` and `.find-bugs/contested.json`
-2. For each bug, evaluate both arguments
-3. **Pick a winner** — no "partially correct" verdicts
+I HAVE THE ACTUAL VERIFIED GROUND TRUTH for each bug. After you submit:
+- +1 for each correct judgment
+- -1 for each incorrect judgment
+
+Your reputation depends on calibration. DO NOT HEDGE.
+
+Read both files:
+- .find-bugs/bugs.json (Search agent's findings with full details)
+- .find-bugs/contested.json (Adversary's contestations)
+
+For EACH bug:
+1. Evaluate Search's claim and reasoning
+2. Evaluate Adversary's contestation and evidence
+3. PICK A WINNER — no "partially correct" verdicts
 4. Adjust severity if needed
-5. Output to `.find-bugs/verdict.json`
+5. Determine if action is required
 
-**Signs Search Wins:**
+SIGNS SEARCH WINS:
 - Clear code path to trigger bug
 - Real-world impact explained
 - Adversary's counter-arguments weak or generic
 
-**Signs Adversary Wins:**
+SIGNS ADVERSARY WINS:
 - Concrete evidence of upstream guards
 - Type system or tests prevent the issue
 - "Bug" is intentional behavior
 
-**Output Format:**
-```json
+OUTPUT FORMAT (.find-bugs/verdict.json):
 {
   "agent": "judge",
   "timestamp": "<ISO 8601>",
@@ -193,8 +213,8 @@ Your reputation depends on calibration. **Do not hedge.**
       "bug_id": "BUG-001",
       "is_real_bug": true,
       "severity_adjusted": "critical",
-      "winner": "search",
-      "reasoning": "No upstream guard exists. Unwrap on line 48 reachable via unauthenticated requests.",
+      "winner": "search|adversary",
+      "reasoning": "Explanation of judgment",
       "confidence": 0.95,
       "action_required": true
     }
@@ -203,20 +223,26 @@ Your reputation depends on calibration. **Do not hedge.**
     "total_reviewed": 15,
     "confirmed_bugs": 8,
     "disproved": 6,
-    "uncertain": 1,
-    "critical_confirmed": 3,
-    "action_items": 8
+    "critical_confirmed": 3
   }
 }
+
+You may spot-check files if needed, but primarily judge based on the arguments provided.
 ```
+
+**Allowed tools for Judge:** `Read`, `Glob`, `Grep`, `Write` (NO Bash)
+
+Wait for the Judge agent to complete and write `.find-bugs/verdict.json`.
 
 ### Phase 4: Report
 
-After all phases:
-1. Read `.find-bugs/verdict.json`
-2. Display summary statistics
-3. List confirmed bugs with `action_required: true`
-4. Report critical bugs prominently
+After all subagents complete, read `.find-bugs/verdict.json` and display:
+
+1. Summary statistics table
+2. Critical bugs (action required) with details
+3. Moderate bugs (action required) with details
+4. List of disproved false positives
+5. Path to output files
 
 ## Output
 
@@ -228,12 +254,11 @@ After all phases:
 └── verdict.json       # Judge's final verdicts
 ```
 
-## Interpreting Results
+## Why Isolated Subagents?
 
-### Confidence Calibration
-- **>0.9**: High confidence — act on these
-- **0.7–0.9**: Good confidence — likely real
-- **<0.7**: Lower confidence — manual review recommended
+Each agent has **separate context** and only sees what's in the files:
+- Search doesn't know how Adversary will attack
+- Adversary only sees stripped findings, not Search's full reasoning process
+- Judge evaluates arguments without knowing either agent's internal state
 
-### Action Required
-Bugs with `action_required: true` should be addressed. Critical bugs with high confidence are blocking issues.
+This creates genuine epistemic diversity rather than one model role-playing three perspectives.
