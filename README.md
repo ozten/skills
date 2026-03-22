@@ -191,6 +191,39 @@ export OPENAI_API_KEY="your-openai-api-key"
 
 > **Note:** If `imagen` isn't installed when you try to generate an image, the skill will offer to install it for you.
 
+## YouTube Transcript Extraction
+
+Extract transcripts from YouTube videos with zero dependencies — just Node.js 18+.
+
+| Skill | Description | Use When |
+|-------|-------------|----------|
+| [youtube-transcript](youtube-transcript/) | Extract transcripts from YouTube videos | "get transcript from this video", "what does this YouTube video say", "summarize this YouTube video" |
+
+**Features:**
+- Zero npm dependencies — self-contained script
+- Uses YouTube's Innertube API (fast) with web scraping fallback
+- Supports timestamps, JSON output, and language selection
+- Works with all YouTube URL formats including Shorts
+
+**Usage:**
+
+```bash
+# Plain text transcript
+node youtube-transcript/get-transcript.js "https://youtube.com/watch?v=VIDEO_ID"
+
+# With timestamps
+node youtube-transcript/get-transcript.js "https://youtu.be/VIDEO_ID" --timestamps
+
+# JSON output
+node youtube-transcript/get-transcript.js "https://youtube.com/watch?v=VIDEO_ID" --json
+
+# Save to file
+node youtube-transcript/get-transcript.js "https://youtu.be/VIDEO_ID" --save transcript.txt
+
+# Specific language
+node youtube-transcript/get-transcript.js "https://youtu.be/VIDEO_ID" --lang es
+```
+
 ## Webcomic - comic-strip-pipeline
 
 Go from a script or story to a prepared script ready for nano-banana or another image generator.
@@ -329,6 +362,15 @@ Once installed, just ask Claude Code to help with tasks:
 
 "Analyze the last 20 iterations"
 → Uses self-improvement skill
+```
+
+**YouTube transcript tasks:**
+```
+"Get the transcript from this YouTube video"
+→ Uses youtube-transcript skill
+
+"Summarize this YouTube video: https://youtube.com/watch?v=xyz"
+→ Uses youtube-transcript skill
 ```
 
 Or reference skills directly when starting a task:

@@ -59,5 +59,9 @@
       "./idea-to-icp",
       "./creative-direction"
     ]
+  }, {
+    "name": "youtube-transcript",
+    "source": "./youtube-transcript",
+    "description": "Extract transcripts from YouTube videos — zero dependencies, just Node.js"
   }]
 }

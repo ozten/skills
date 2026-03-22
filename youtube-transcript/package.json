@@ -1,0 +1,12 @@
+{
+  "name": "youtube-transcript",
+  "version": "1.0.0",
+  "description": "Extract transcripts from YouTube videos - zero dependencies",
+  "type": "module",
+  "bin": {
+    "youtube-transcript": "./get-transcript.js"
+  },
+  "scripts": {
+    "start": "node get-transcript.js"
+  }
+}
